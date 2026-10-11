@@ -47,25 +47,31 @@
 #define PI 3.1415927f
 #define SEMENTE_ALEATORIA 12345u
 
-/* Cada partícula é uma hipótese de posição do robô. */
+/* Representa uma particula durante os calculos, com coordenadas em metros. */
 typedef struct {
-    uint8_t dados[3];
+    float x;
+    float y;
 } Particula;
 
-_Static_assert(sizeof(Particula) == 3u,
-               "Particula deve ocupar exatamente tres bytes");
+/* Representacao persistente compactada: 12 bits para x e 12 bits para y. */
+typedef struct {
+    uint8_t dados[3];
+} ParticulaCompactada;
+
+_Static_assert(sizeof(ParticulaCompactada) == 3u,
+               "ParticulaCompactada deve ocupar exatamente tres bytes");
 
 /* Estado principal do filtro. */
 typedef struct {
-    Particula *particulas;
-    Particula *novas_particulas;
+    ParticulaCompactada *particulas;
+    ParticulaCompactada *novas_particulas;
     uint32_t estado_aleatorio;
 } FiltroParticulas;
 
 /* Estado persistente do filtro em SRAM estática (.bss); variável global de estado. */
 static FiltroParticulas filtro;
-static Particula populacao_a[NUM_PARTICULAS];
-static Particula populacao_b[NUM_PARTICULAS];
+static ParticulaCompactada populacao_a[NUM_PARTICULAS];
+static ParticulaCompactada populacao_b[NUM_PARTICULAS];
 
 /* 
  * Calcula distância ideal da posição (x,y) até a parede indicada.
@@ -112,25 +118,28 @@ static float decodificar_coordenada(uint16_t valor, float limite) {
     return (float)valor * limite / (float)COORDENADA_MAXIMA;
 }
 
-static void compactar_particula(Particula *particula, float x, float y) {
-    uint16_t x_compactado = codificar_coordenada(x, MAPA_LARGURA);
-    uint16_t y_compactado = codificar_coordenada(y, MAPA_ALTURA);
+static void compactar_particula(ParticulaCompactada *destino,
+                                const Particula *particula) {
+    uint16_t x_compactado = codificar_coordenada(
+        particula->x, MAPA_LARGURA);
+    uint16_t y_compactado = codificar_coordenada(
+        particula->y, MAPA_ALTURA);
 
-    particula->dados[0] = (uint8_t)x_compactado;
-    particula->dados[1] = (uint8_t)(((x_compactado >> 8) & 0x0Fu) |
-                                    ((y_compactado & 0x0Fu) << 4));
-    particula->dados[2] = (uint8_t)(y_compactado >> 4);
+    destino->dados[0] = (uint8_t)x_compactado;
+    destino->dados[1] = (uint8_t)(((x_compactado >> 8) & 0x0Fu) |
+                                  ((y_compactado & 0x0Fu) << 4));
+    destino->dados[2] = (uint8_t)(y_compactado >> 4);
 }
 
-static void descompactar_particula(const Particula *particula,
-                                   float *x, float *y) {
-    uint16_t x_compactado = (uint16_t)particula->dados[0] |
-        ((uint16_t)(particula->dados[1] & 0x0Fu) << 8);
-    uint16_t y_compactado = ((uint16_t)particula->dados[1] >> 4) |
-        ((uint16_t)particula->dados[2] << 4);
+static void descompactar_particula(const ParticulaCompactada *origem,
+                                   Particula *particula) {
+    uint16_t x_compactado = (uint16_t)origem->dados[0] |
+        ((uint16_t)(origem->dados[1] & 0x0Fu) << 8);
+    uint16_t y_compactado = ((uint16_t)origem->dados[1] >> 4) |
+        ((uint16_t)origem->dados[2] << 4);
 
-    *x = decodificar_coordenada(x_compactado, MAPA_LARGURA);
-    *y = decodificar_coordenada(y_compactado, MAPA_ALTURA);
+    particula->x = decodificar_coordenada(x_compactado, MAPA_LARGURA);
+    particula->y = decodificar_coordenada(y_compactado, MAPA_ALTURA);
 }
 
 /* 
@@ -181,9 +190,10 @@ static void inicializar_estado(FiltroParticulas *filtro) {
 
     /* Sem uma posicao inicial conhecida, usa prior uniforme no mapa. */
     for (int i = 0; i < NUM_PARTICULAS; i++) {
-        float x = aleatorio_entre_zero_e_um(filtro) * MAPA_LARGURA;
-        float y = aleatorio_entre_zero_e_um(filtro) * MAPA_ALTURA;
-        compactar_particula(&filtro->particulas[i], x, y);
+        Particula particula;
+        particula.x = aleatorio_entre_zero_e_um(filtro) * MAPA_LARGURA;
+        particula.y = aleatorio_entre_zero_e_um(filtro) * MAPA_ALTURA;
+        compactar_particula(&filtro->particulas[i], &particula);
     }
 }
 
@@ -198,17 +208,16 @@ static void prever_particulas(FiltroParticulas *filtro,
     float angulo = medicao->angulo * PI / 180.0f;
 
     for (int i = 0; i < NUM_PARTICULAS; i++) {
-        float x;
-        float y;
+        Particula particula;
         float direcao = angulo +
                         ruido_normal(filtro, DESVIO_ANGULO);
         float distancia = medicao->deslocamento +
                           ruido_normal(filtro, DESVIO_MOVIMENTO);
 
-        descompactar_particula(&filtro->particulas[i], &x, &y);
-        x += distancia * cosf(direcao);
-        y += distancia * sinf(direcao);
-        compactar_particula(&filtro->particulas[i], x, y);
+        descompactar_particula(&filtro->particulas[i], &particula);
+        particula.x += distancia * cosf(direcao);
+        particula.y += distancia * sinf(direcao);
+        compactar_particula(&filtro->particulas[i], &particula);
     }
 }
 
@@ -220,15 +229,11 @@ static void prever_particulas(FiltroParticulas *filtro,
  */
 static float calcular_peso(const Particula *particula,
                            const Medicao *medicao) {
-    float x;
-    float y;
     float erro_total = 0.0f;
-
-    descompactar_particula(particula, &x, &y);
 
     for (int sensor = 0; sensor < NUM_SENSORES; sensor++) {
         float distancia_prevista = medir_distancia_ideal(
-            x, y, sensor);
+            particula->x, particula->y, sensor);
         float erro = distancia_prevista - medicao->sensores[sensor];
 
         erro_total += erro * erro;
@@ -246,24 +251,23 @@ static float calcular_soma_e_estimativa(const FiltroParticulas *filtro,
     float soma_y = 0.0f;
 
     for (int i = 0; i < NUM_PARTICULAS; i++) {
-        float x;
-        float y;
-        float peso = calcular_peso(&filtro->particulas[i], medicao);
-        descompactar_particula(&filtro->particulas[i], &x, &y);
+        Particula particula;
+        float peso;
+        descompactar_particula(&filtro->particulas[i], &particula);
+        peso = calcular_peso(&particula, medicao);
         soma_pesos += peso;
-        soma_x += x * peso;
-        soma_y += y * peso;
+        soma_x += particula.x * peso;
+        soma_y += particula.y * peso;
     }
 
     if (soma_pesos <= PESO_MINIMO) {
         soma_x = 0.0f;
         soma_y = 0.0f;
         for (int i = 0; i < NUM_PARTICULAS; i++) {
-            float x;
-            float y;
-            descompactar_particula(&filtro->particulas[i], &x, &y);
-            soma_x += x;
-            soma_y += y;
+            Particula particula;
+            descompactar_particula(&filtro->particulas[i], &particula);
+            soma_x += particula.x;
+            soma_y += particula.y;
         }
         estimativa->x = soma_x / (float)NUM_PARTICULAS;
         estimativa->y = soma_y / (float)NUM_PARTICULAS;
@@ -292,23 +296,28 @@ static void reamostrar(FiltroParticulas *filtro, const Medicao *medicao,
     } else {
         float passo = soma_pesos / (float)NUM_PARTICULAS;
         float ponto = aleatorio * passo;
-        float acumulado = calcular_peso(&filtro->particulas[0], medicao);
+        Particula particula;
+        float acumulado;
         int indice = 0;
+
+        descompactar_particula(&filtro->particulas[0], &particula);
+        acumulado = calcular_peso(&particula, medicao);
 
         for (int i = 0; i < NUM_PARTICULAS; i++) {
             float alvo = ponto + (float)i * passo;
 
             while (alvo > acumulado && indice < NUM_PARTICULAS - 1) {
                 indice++;
-                acumulado += calcular_peso(
-                    &filtro->particulas[indice], medicao);
+                descompactar_particula(
+                    &filtro->particulas[indice], &particula);
+                acumulado += calcular_peso(&particula, medicao);
             }
             filtro->novas_particulas[i] = filtro->particulas[indice];
         }
     }
 
     {
-        Particula *temporaria = filtro->particulas;
+        ParticulaCompactada *temporaria = filtro->particulas;
         filtro->particulas = filtro->novas_particulas;
         filtro->novas_particulas = temporaria;
     }
