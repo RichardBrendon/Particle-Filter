@@ -1,0 +1,47 @@
+# Saidas de compilacao do STM32CubeIDE
+/Debug/
+/Release/
+
+# Configuracoes locais dos editores/IDEs
+/.settings/
+/.vscode/
+*.launch
+*.log
+
+# Arquivos compilados ou gerados pelo toolchain
+*.o
+*.obj
+*.d
+*.su
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+*.exe
+
+# Python: cache, ambientes virtuais e ferramentas
+__pycache__/
+*.py[cod]
+*$py.class
+/.venv/
+/venv/
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+.coverage
+htmlcov/
+
+# Resultados CSV gerados pelas implementacoes C e Python
+/Resultados/
+
+# Copia temporaria do firmware usada pelo Renode
+/Renode/firmware.elf
+
+# Arquivos temporarios do sistema operacional e editores
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.swp
+*.tmp
