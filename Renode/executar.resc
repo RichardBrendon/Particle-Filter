@@ -1,0 +1,14 @@
+:name: STM32F030R8 - Particle Filter
+:description: Executa o firmware e expoe a USART2 em TCP localhost:12345
+
+$bin?=@R:/Renode/firmware.elf
+$porta?=12345
+
+mach create "nucleo_f030r8"
+machine LoadPlatformDescription @R:/Renode/stm32f030r8.repl
+sysbus LoadELF $bin
+
+emulation CreateServerSocketTerminal $porta "uartTerminal" false
+connector Connect sysbus.usart2 uartTerminal
+
+start

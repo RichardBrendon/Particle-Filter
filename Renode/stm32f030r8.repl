@@ -1,0 +1,20 @@
+using "platforms/cpus/stm32f0.repl"
+
+// Memorias do STM32F030R8T6 usado pela NUCLEO-F030R8.
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x10000
+
+sram: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x2000
+
+// O HAL confirma por leitura a latencia escrita em FLASH_ACR. O modelo
+// generico STM32F0 apenas etiqueta essa faixa, portanto mantemos os registros.
+flashInterface: Memory.MappedMemory @ sysbus 0x40022000
+    size: 0x400
+
+// O projeto configura o nucleo e a USART2 para 48 MHz.
+nvic:
+    systickFrequency: 48000000
+
+usart2:
+    frequency: 48000000
