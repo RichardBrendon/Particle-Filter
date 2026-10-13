@@ -1,9 +1,19 @@
 import math
 import csv
+import argparse
 from pathlib import Path
 
 import numpy as np
 from filterpy.monte_carlo import systematic_resample
+
+from medicoes import (
+    CAMPOS_RESULTADO,
+    ESCALA_METROS,
+    ESCALA_REAMOSTRAGEM,
+    SEMENTE_REAMOSTRAGEM,
+    criar_medicao,
+    ler_arquivo_medicoes,
+)
 
 NUM_PARTICULAS = 1000
 NUM_SENSORES = 4
@@ -40,18 +50,17 @@ def ler_numero_etapas():
 
 
 def ler_medicao(etapa, numero_etapas):
-    print(f"\nEtapa {etapa} de {numero_etapas}")
     deslocamento = float(input("Deslocamento (m): "))
     angulo_graus = float(input("Angulo do movimento (graus): "))
-    sensores = np.empty(NUM_SENSORES, dtype=np.float32)
+    sensores = []
     limites = (MAPA_LARGURA, MAPA_LARGURA, MAPA_ALTURA, MAPA_ALTURA)
     for indice, nome in enumerate(NOMES_SENSORES):
         valor = float(input(f"Distancia medida ate a {nome} (m): "))
         if not math.isfinite(valor) or not 0 <= valor <= limites[indice]:
             raise ValueError(f"Distancia invalida para {nome}.")
-        sensores[indice] = np.float32(valor)
+        sensores.append(valor)
 
-    return np.float32(deslocamento), angulo_graus, sensores
+    return criar_medicao(etapa, deslocamento, angulo_graus, sensores)
 
 
 estado_aleatorio = SEMENTE_ALEATORIA
@@ -158,6 +167,14 @@ def estimar_posicao(particulas, pesos):
     return x_estimado, y_estimado
 
 
+def formatar_medido_como_uart(valor):
+    """Reproduz a conversao float32 -> micrometros feita pelo firmware."""
+    escalado = np.float32(np.float32(valor) * np.float32(ESCALA_METROS))
+    arredondamento = np.float32(0.5 if escalado >= 0 else -0.5)
+    micrometros = int(np.float32(escalado + arredondamento))
+    return f"{micrometros / ESCALA_METROS:.6f}"
+
+
 def ruido_normal(desvio):
     soma = np.float32(0.0)
     for _ in range(12):
@@ -189,19 +206,35 @@ def prever_particulas(particulas, deslocamento, angulo_graus):
 
 
 def main():
+    analisador = argparse.ArgumentParser(description="Referencia Python do filtro de particulas.")
+    analisador.add_argument(
+        "--entradas", type=Path,
+        help="CSV com as mesmas medicoes enviadas ao firmware",
+    )
+    argumentos = analisador.parse_args()
     print("Filtro de Particulas em Python")
     print(f"Mapa: {MAPA_LARGURA:.1f} m x {MAPA_ALTURA:.1f} m")
     print(f"Particulas: {NUM_PARTICULAS} | Sensores: {NUM_SENSORES}")
-    numero_etapas = ler_numero_etapas()
+    medicoes = ler_arquivo_medicoes(argumentos.entradas) if argumentos.entradas else None
+    numero_etapas = len(medicoes) if medicoes else ler_numero_etapas()
     particulas = inicializar_particulas()
+    np.random.seed(SEMENTE_REAMOSTRAGEM)
+    sorteios_registro = np.random.RandomState(SEMENTE_REAMOSTRAGEM)
     DIRETORIO_RESULTADOS.mkdir(exist_ok=True)
     with ARQUIVO_RESULTADO_PYTHON.open(
         "w", newline="", encoding="utf-8"
     ) as arquivo:
         escritor = csv.writer(arquivo)
-        escritor.writerow(("etapa", "x_medido", "y_medido", "x_estimado", "y_estimado"))
+        escritor.writerow(CAMPOS_RESULTADO)
         for etapa in range(numero_etapas):
-            deslocamento, angulo_graus, sensores = ler_medicao(etapa + 1, numero_etapas)
+            print(f"\nEtapa {etapa + 1} de {numero_etapas}")
+            medicao = (
+                medicoes[etapa] if medicoes
+                else ler_medicao(etapa + 1, numero_etapas)
+            )
+            deslocamento = np.float32(medicao.deslocamento)
+            angulo_graus = medicao.angulo
+            sensores = np.asarray(medicao.sensores, dtype=np.float32)
 
             prever_particulas(particulas, deslocamento, angulo_graus)
 
@@ -215,17 +248,22 @@ def main():
                 (sensores[2] + np.float32(MAPA_ALTURA - sensores[3]))
                 / np.float32(2.0)
             )
-            escritor.writerow((
-                etapa + 1,
-                f"{float(x_medido):.9g}",
-                f"{float(y_medido):.9g}",
-                f"{float(x_estimado):.9g}",
-                f"{float(y_estimado):.9g}",
-            ))
-
             # A reamostragem do FilterPy atualiza as particulas para a proxima etapa.
+            # Um gerador paralelo permite registrar o sorteio sem alterar o
+            # estado global que a funcao pronta do FilterPy consome.
+            amostra_u53 = int(sorteios_registro.random_sample()
+                              * ESCALA_REAMOSTRAGEM)
             indices = systematic_resample(pesos)
             particulas = particulas[indices].copy()
+
+            escritor.writerow((
+                *medicao.campos_entrada(),
+                amostra_u53,
+                formatar_medido_como_uart(x_medido),
+                formatar_medido_como_uart(y_medido),
+                f"{float(x_estimado):.6f}",
+                f"{float(y_estimado):.6f}",
+            ))
 
             print(f"Posicao estimada: ({float(x_estimado):.6f}, {float(y_estimado):.6f}) m")
 
