@@ -65,6 +65,8 @@ static void MX_USART2_UART_Init(void);
 #define UART_LINHA_TAMANHO 160
 #define ESCALA_METROS 1000000.0f
 #define ESCALA_ANGULO 1000.0f
+#define ESCALA_REAMOSTRAGEM 9007199254740992.0
+#define AMOSTRA_REAMOSTRAGEM_MAXIMA 9007199254740991ULL
 
 static void uart_enviar(const char *texto)
 {
@@ -121,6 +123,32 @@ static int ler_inteiro(const char *texto, int32_t *valor)
   return 1;
 }
 
+static int ler_amostra_reamostragem(const char *texto, uint64_t *valor)
+{
+  uint64_t convertido = 0;
+  if (*texto == '\0')
+  {
+    return 0;
+  }
+  while (*texto != '\0')
+  {
+    unsigned int digito;
+    if (*texto < '0' || *texto > '9')
+    {
+      return 0;
+    }
+    digito = (unsigned int)(*texto - '0');
+    if (convertido > (AMOSTRA_REAMOSTRAGEM_MAXIMA - digito) / 10u)
+    {
+      return 0;
+    }
+    convertido = convertido * 10u + digito;
+    texto++;
+  }
+  *valor = convertido;
+  return 1;
+}
+
 static int32_t metros_para_inteiro(float valor)
 {
   float escalado = valor * ESCALA_METROS;
@@ -130,6 +158,7 @@ static int32_t metros_para_inteiro(float valor)
 static int processar_step(char *linha)
 {
   int32_t valores[7];
+  uint64_t amostra_u53;
   char *token = strtok(linha, ",");
   char resposta[128];
   Medicao medicao;
@@ -150,6 +179,12 @@ static int processar_step(char *linha)
       uart_enviar("ERROR,CAMPOS_INVALIDOS\n");
       return 1;
     }
+  }
+  token = strtok(NULL, ",");
+  if (token == NULL || !ler_amostra_reamostragem(token, &amostra_u53))
+  {
+    uart_enviar("ERROR,CAMPOS_INVALIDOS\n");
+    return 1;
   }
   if (strtok(NULL, ",") != NULL)
   {
@@ -174,7 +209,8 @@ static int processar_step(char *linha)
     return 1;
   }
 
-  estimativa = filtro_processar(&medicao);
+  estimativa = filtro_processar(
+      &medicao, (double)amostra_u53 / ESCALA_REAMOSTRAGEM);
   x_medido = (medicao.sensores[0] +
               (MAPA_LARGURA - medicao.sensores[1])) / 2.0f;
   y_medido = (medicao.sensores[2] +
