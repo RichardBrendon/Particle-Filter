@@ -8,6 +8,17 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
+from medicoes import (
+    CAMPOS_RESULTADO,
+    ESCALA_REAMOSTRAGEM,
+    LIMITES_SENSORES,
+    SEMENTE_REAMOSTRAGEM,
+    criar_medicao,
+    ler_arquivo_medicoes,
+)
+
 try:
     import serial
     from serial.tools import list_ports
@@ -19,7 +30,6 @@ except ImportError:
 BAUD_RATE = 115200
 TIMEOUT_PADRAO = 3.0
 ESCALA_METROS = 1_000_000
-ESCALA_ANGULO = 1_000
 RAIZ_PROJETO = Path(__file__).resolve().parent.parent
 ARQUIVO_RESULTADO = RAIZ_PROJETO / "Resultados" / "resultado_c.csv"
 NOMES_SENSORES = (
@@ -169,10 +179,6 @@ def sincronizar(conexao):
         raise ErroComunicacao(f"Esperado READY, recebido: {resposta}")
 
 
-def inteiro_escalado(valor, escala):
-    return round(valor * escala)
-
-
 def processar_resposta(resposta, etapa_esperada):
     campos = resposta.split(",")
     if len(campos) != 6 or campos[0] != "RESULT":
@@ -206,52 +212,56 @@ def abrir_conexao(porta_serial, endereco_tcp, timeout):
     return serial.Serial(porta, BAUD_RATE, timeout=timeout), porta
 
 
-def executar(porta_serial, endereco_tcp, timeout):
-    numero_etapas = ler_numero_etapas()
+def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
+    medicoes = ler_arquivo_medicoes(arquivo_entradas) if arquivo_entradas else None
+    numero_etapas = len(medicoes) if medicoes else ler_numero_etapas()
     ARQUIVO_RESULTADO.parent.mkdir(exist_ok=True)
     conexao, descricao = abrir_conexao(porta_serial, endereco_tcp, timeout)
 
     with conexao:
         time.sleep(0.2)
         sincronizar(conexao)
+        np.random.seed(SEMENTE_REAMOSTRAGEM)
         print(f"Conectado a {descricao}.")
 
         with ARQUIVO_RESULTADO.open("w", newline="", encoding="utf-8") as arquivo:
             escritor = csv.writer(arquivo)
-            escritor.writerow(
-                ("etapa", "x_medido", "y_medido", "x_estimado", "y_estimado")
-            )
+            escritor.writerow(CAMPOS_RESULTADO)
 
             for etapa in range(1, numero_etapas + 1):
                 print(f"\nEtapa {etapa} de {numero_etapas}")
-                deslocamento = ler_float("Deslocamento (m): ")
-                angulo = ler_float("Angulo do movimento (graus): ")
-                sensores = []
-                limites = (10.0, 10.0, 8.0, 8.0)
-                for nome, limite in zip(NOMES_SENSORES, limites):
-                    sensores.append(
+                if medicoes:
+                    medicao = medicoes[etapa - 1]
+                else:
+                    deslocamento = ler_float("Deslocamento (m): ")
+                    angulo = ler_float("Angulo do movimento (graus): ")
+                    sensores = [
                         ler_float(
-                            f"Distancia medida ate a {nome} (m): ",
-                            0.0,
-                            limite,
+                            f"Distancia medida ate a {nome} (m): ", 0.0, limite
                         )
-                    )
+                        for nome, limite in zip(NOMES_SENSORES, LIMITES_SENSORES)
+                    ]
+                    medicao = criar_medicao(etapa, deslocamento, angulo, sensores)
 
+                # O FilterPy consumira o mesmo sorteio na etapa correspondente.
+                amostra_u53 = int(np.random.random() * ESCALA_REAMOSTRAGEM)
                 campos = [
                     "STEP",
                     str(etapa),
-                    str(inteiro_escalado(deslocamento, ESCALA_METROS)),
-                    str(inteiro_escalado(angulo, ESCALA_ANGULO)),
-                    *(str(inteiro_escalado(valor, ESCALA_METROS)) for valor in sensores),
+                    str(medicao.deslocamento_um),
+                    str(medicao.angulo_mgraus),
+                    *(str(valor) for valor in medicao.sensores_um),
+                    str(amostra_u53),
                 ]
                 resposta = enviar_comando(conexao, ",".join(campos))
                 resultado = processar_resposta(resposta, etapa)
                 escritor.writerow(
-                    (resultado[0], *(f"{valor:.9g}" for valor in resultado[1:]))
+                    (*medicao.campos_entrada(), amostra_u53,
+                     *(f"{valor:.6f}" for valor in resultado[1:]))
                 )
                 arquivo.flush()
                 print(
-                    "Posicao estimada pela placa: "
+                    "Posicao estimada: "
                     f"({resultado[3]:.6f}, {resultado[4]:.6f}) m"
                 )
 
@@ -275,6 +285,11 @@ def criar_argumentos():
         help=f"timeout da UART em segundos (padrao: {TIMEOUT_PADRAO})",
     )
     analisador.add_argument(
+        "--entradas",
+        type=Path,
+        help="CSV com as mesmas medicoes usadas pela referencia Python",
+    )
+    analisador.add_argument(
         "--listar-portas",
         action="store_true",
         help="lista as portas seriais e encerra",
@@ -296,8 +311,8 @@ def main():
         return 2
 
     try:
-        executar(argumentos.porta, argumentos.tcp, argumentos.timeout)
-    except (OSError, ErroComunicacao) as erro:
+        executar(argumentos.porta, argumentos.tcp, argumentos.timeout, argumentos.entradas)
+    except (OSError, ValueError, ErroComunicacao) as erro:
         print(f"Erro: {erro}")
         return 1
     except KeyboardInterrupt:
