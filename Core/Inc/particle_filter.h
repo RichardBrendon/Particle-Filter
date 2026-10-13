@@ -19,7 +19,7 @@ typedef struct {
 /* Reinicia as particulas, os pesos e o gerador pseudoaleatorio. */
 void filtro_inicializar(void);
 
-/* Executa previsao, correcao, estimativa e reamostragem de uma etapa. */
-Posicao filtro_processar(const Medicao *medicao);
+/* Executa uma etapa; amostra_reamostragem e o sorteio enviado pelo PC em [0, 1). */
+Posicao filtro_processar(const Medicao *medicao, double amostra_reamostragem);
 
 #endif
