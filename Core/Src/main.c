@@ -253,6 +253,18 @@ static void processar_comando_uart(void)
     uart_enviar("PONG\n");
     return;
   }
+  if (strcmp(linha, "INFO") == 0)
+  {
+    char resposta[64];
+    (void)snprintf(resposta, sizeof(resposta),
+                   "INFO,%ld,%ld,%u,%u\n",
+                   (long)(MAPA_LARGURA * ESCALA_METROS),
+                   (long)(MAPA_ALTURA * ESCALA_METROS),
+                   (unsigned int)NUM_PARTICULAS,
+                   (unsigned int)NUM_SENSORES);
+    uart_enviar(resposta);
+    return;
+  }
   if (!processar_step(linha))
   {
     uart_enviar("ERROR,COMANDO_DESCONHECIDO\n");
