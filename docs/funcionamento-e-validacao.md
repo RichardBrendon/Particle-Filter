@@ -19,7 +19,7 @@ flowchart TD
     H -- Não --> I[Fim]
 ```
 
-A **estimativa é calculada antes da reamostragem**. A população reamostrada será usada na etapa seguinte. No C, a reamostragem ocorre dentro de `particle_filter.c`; na referência Python, ela usa `systematic_resample` do FilterPy. Mesmo com o mesmo sorteio, diferenças de arredondamento nos pesos e nas somas acumuladas podem selecionar partículas diferentes.
+A **estimativa é calculada antes da reamostragem**. A população reamostrada será usada na etapa seguinte. No C, a reamostragem ocorre dentro de `particle_filter.c`: cada peso é recalculado e dividido pela soma total antes de entrar no acumulado, sem armazenar um vetor de pesos. Na referência Python, ela usa `systematic_resample` do FilterPy com pesos normalizados. Mesmo com o mesmo sorteio e a mesma escala dos pesos, diferenças de arredondamento nos pesos e nas somas acumuladas podem selecionar partículas diferentes.
 
 ## 2. Teste e validação C–Python
 
