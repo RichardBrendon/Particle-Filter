@@ -35,7 +35,7 @@ flowchart TD
     E --> F
     F --> G{Etapas, entradas, sorteios e valores são válidos?}
     G -- Não --> H[FALHOU: indicar etapa e motivo]
-    G -- Sim --> I{Distância C–Python é até 1 cm em toda etapa?}
+    G -- Sim --> I{Distância C–Python respeita o limite da etapa?}
     I -- Não --> H
     I -- Sim --> J[PASSOU]
     H --> K[Mostrar diferença máxima e RMSE]
@@ -46,9 +46,9 @@ Em cada etapa, o comparador calcula a distância euclidiana entre as estimativas
 
 `d = sqrt((x_C - x_Python)^2 + (y_C - y_Python)^2)`
 
-O critério numérico padrão, ainda **provisório**, é `d ≤ 0,01 m` em **todas** as etapas. O comparador também confere quantidade e ordem das etapas, entradas e sorteios iguais, posições dentro do mapa e posições medidas compatíveis com os sensores, admitindo 1 micrômetro de diferença por arredondamento da UART. Qualquer falha torna o resultado geral `FALHOU`.
+O critério numérico é `d ≤ 0,00001 m` (10 micrômetros) **na primeira etapa** e `d ≤ 0,01 m` (1 cm) **nas demais**. O comparador também confere quantidade e ordem das etapas, entradas e sorteios iguais, posições dentro do mapa e posições medidas compatíveis com os sensores, admitindo 1 micrômetro de diferença por arredondamento da UART. Qualquer falha torna o resultado geral `FALHOU`.
 
-A **diferença máxima** e o **RMSE** resumem o comportamento do cenário, mas o RMSE não decide a aprovação: uma etapa muito divergente poderia ser escondida pela média das demais. Se todas as distâncias individuais são no máximo 1 cm, o RMSE também é no máximo 1 cm. O desvio padrão das diferenças não substitui esse critério, pois pode ser pequeno mesmo quando todas as diferenças são grandes. O limite de 1 cm foi adotado como critério prático de comparação entre implementações; não afirma precisão absoluta de localização nem garante aprovação em qualquer cenário.
+A **diferença máxima** e o **RMSE** resumem o comportamento do cenário, mas o RMSE não decide a aprovação: uma etapa muito divergente poderia ser escondida pela média das demais. O desvio padrão das diferenças não substitui esse critério, pois pode ser pequeno mesmo quando todas as diferenças são grandes. Os limites comparam as implementações; não afirmam precisão absoluta de localização nem garantem aprovação em qualquer cenário.
 
 ## Como reproduzir
 
