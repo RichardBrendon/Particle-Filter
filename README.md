@@ -305,7 +305,7 @@ O critério de concordância entre C e Python é uma diferença de no máximo `0
 
 `cenario_60_etapas.csv` é um teste adicional com movimentos diagonais, mudanças bruscas de direção e posições próximas às paredes. Os arquivos de 1, 5, 10, 20, 25, 50 e 100 etapas permitem observar a concordância em durações diferentes. Execute C e Python com o **mesmo** arquivo antes de comparar: os resultados anteriores são sobrescritos em cada execução. Se o teste falhar, investigue a etapa e a causa da divergência antes de rever o critério.
 
-O cliente UART e a referência Python usam a mesma semente do NumPy para gerar o ponto inicial da reamostragem. O firmware executa a reamostragem em C usando o sorteio recebido e preserva a sequência do seu gerador de movimento. Ainda podem ocorrer diferenças nos pesos acumulados e nos índices selecionados por causa da aritmética das duas implementações.
+O cliente UART e a referência Python usam a mesma semente do NumPy para gerar o ponto inicial da reamostragem. O firmware executa a reamostragem em C usando o sorteio recebido: recalcula e normaliza cada peso durante a seleção, sem guardar um vetor adicional de pesos e sem avançar o gerador do movimento. Ainda podem ocorrer diferenças nos pesos acumulados e nos índices selecionados por causa da aritmética das duas implementações.
 
 Para alterar explicitamente os limites no momento do teste:
 
