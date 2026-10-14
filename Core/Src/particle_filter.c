@@ -281,8 +281,9 @@ static float calcular_soma_e_estimativa(const FiltroParticulas *filtro,
  * Reamostra sistematicamente: partículas de maior peso são selecionadas mais
  * vezes e os pesos retornam à distribuição uniforme. O ponto inicial vem da
  * amostra enviada pelo PC; a selecao e a troca de populacoes ocorrem aqui.
- * O gerador usado no movimento nao e avancado pela reamostragem. A segunda
- * populacao compactada fica em memoria estatica.
+ * O gerador usado no movimento nao e avancado pela reamostragem. Cada peso
+ * e recalculado e normalizado pela soma total quando necessario, sem vetor
+ * adicional de pesos. A segunda populacao compactada fica em memoria estatica.
  */
 static void reamostrar(FiltroParticulas *filtro, const Medicao *medicao,
                        float soma_pesos, double amostra_reamostragem) {
@@ -291,23 +292,22 @@ static void reamostrar(FiltroParticulas *filtro, const Medicao *medicao,
             filtro->novas_particulas[i] = filtro->particulas[i];
         }
     } else {
-        double passo = (double)soma_pesos / (double)NUM_PARTICULAS;
-        double ponto = amostra_reamostragem * passo;
         Particula particula;
         float acumulado;
         int indice = 0;
 
         descompactar_particula(&filtro->particulas[0], &particula);
-        acumulado = calcular_peso(&particula, medicao);
+        acumulado = calcular_peso(&particula, medicao) / soma_pesos;
 
         for (int i = 0; i < NUM_PARTICULAS; i++) {
-            double alvo = ponto + (double)i * passo;
+            double alvo = (amostra_reamostragem + (double)i) /
+                          (double)NUM_PARTICULAS;
 
             while (alvo >= acumulado && indice < NUM_PARTICULAS - 1) {
                 indice++;
                 descompactar_particula(
                     &filtro->particulas[indice], &particula);
-                acumulado += calcular_peso(&particula, medicao);
+                acumulado += calcular_peso(&particula, medicao) / soma_pesos;
             }
             filtro->novas_particulas[i] = filtro->particulas[indice];
         }
