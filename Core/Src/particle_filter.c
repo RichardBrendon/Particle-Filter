@@ -36,7 +36,6 @@
 
 
 /* Número de hipóteses de posição e quantidade de sensores simulados. */
-#define NUM_PARTICULAS 1000
 #define COORDENADA_MAXIMA 4095u
 
 /* Desvios dos ruídos de movimento (m), direção (rad) e sensores (m). */
