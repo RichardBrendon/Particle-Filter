@@ -41,6 +41,7 @@ Particle Filter/
 ├── Renode/                    # Plataforma e scripts de emulação
 ├── Resultados/                # CSVs gerados (não versionados)
 ├── executar_teste.ps1         # Executa C, Python e comparação em sequência
+├── listar_portas.ps1          # Lista as portas seriais disponíveis
 ├── Particle Filter.ioc         # Configuração do STM32CubeMX
 └── STM32F030R8TX_FLASH.ld     # Script de linker
 ```
@@ -113,8 +114,16 @@ Para usar a placa já gravada, substitua a porta conforme o PC:
 
 ## Executar na placa
 
+Para listar as portas disponíveis pelo terminal, execute na raiz do projeto:
+
+```powershell
+.\listar_portas.ps1
+```
+
+O script mostra a porta e a descrição, como `COM3: STMicroelectronics STLink Virtual COM Port`, quando ela estiver disponível. Ele não abre a porta, não inicia o filtro e não depende de Python.
+
 1. Compile o projeto e grave o firmware na NUCLEO-F030R8 pelo STM32CubeIDE.
-2. Identifique a porta COM do ST-LINK no Gerenciador de Dispositivos do Windows.
+2. Identifique a porta COM do ST-LINK com `listar_portas.ps1` ou no Gerenciador de Dispositivos do Windows.
 3. Feche outros monitores seriais que estejam usando a mesma porta.
 4. Na raiz do projeto, execute com o cenário compartilhado:
 
