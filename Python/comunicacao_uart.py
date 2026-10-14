@@ -283,9 +283,6 @@ def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
                     f"({resultado[3]:.6f}, {resultado[4]:.6f}) m"
                 )
 
-    print(f"\nResultado salvo em: {ARQUIVO_RESULTADO}")
-
-
 def criar_argumentos():
     analisador = argparse.ArgumentParser(
         description="Envia medicoes para a NUCLEO-F030R8 pela USART2."
