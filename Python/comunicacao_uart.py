@@ -179,6 +179,20 @@ def sincronizar(conexao):
         raise ErroComunicacao(f"Esperado READY, recebido: {resposta}")
 
 
+def obter_info(conexao):
+    resposta = enviar_comando(conexao, "INFO")
+    campos = resposta.split(",")
+    if len(campos) != 5 or campos[0] != "INFO":
+        raise ErroComunicacao(f"Resposta INFO invalida: {resposta}")
+    try:
+        largura_um, altura_um, particulas, sensores = map(int, campos[1:])
+    except ValueError as erro:
+        raise ErroComunicacao(f"Resposta INFO invalida: {resposta}") from erro
+    if min(largura_um, altura_um, particulas, sensores) <= 0:
+        raise ErroComunicacao(f"Resposta INFO invalida: {resposta}")
+    return largura_um / ESCALA_METROS, altura_um / ESCALA_METROS, particulas, sensores
+
+
 def processar_resposta(resposta, etapa_esperada):
     campos = resposta.split(",")
     if len(campos) != 6 or campos[0] != "RESULT":
@@ -221,7 +235,11 @@ def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
     with conexao:
         time.sleep(0.2)
         sincronizar(conexao)
+        largura, altura, particulas, sensores_configurados = obter_info(conexao)
         np.random.seed(SEMENTE_REAMOSTRAGEM)
+        print("Filtro de Particulas em C")
+        print(f"Mapa: {largura:.1f} m x {altura:.1f} m")
+        print(f"Particulas: {particulas} | Sensores: {sensores_configurados}")
         print(f"Conectado a {descricao}.")
 
         with ARQUIVO_RESULTADO.open("w", newline="", encoding="utf-8") as arquivo:
