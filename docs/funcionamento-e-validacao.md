@@ -53,8 +53,7 @@ A **diferença máxima** e o **RMSE** resumem o comportamento do cenário, mas o
 ## Como reproduzir
 
 1. Escolha um cenário, por exemplo `Dados_Teste/cenario_60_etapas.csv`.
-2. Execute `comunicacao_uart.py` com `--entradas` apontando para ele, usando a placa ou o Renode.
-3. Execute `particle_filter.py` com o mesmo `--entradas`.
-4. Execute `python .\Python\comparar_resultados.py` na raiz do projeto.
+2. Com o firmware ativo na placa ou no Renode, execute `.\executar_teste.ps1 -Cenario 60 -Modo Renode` na raiz do projeto (troque o modo e informe `-Porta` para a placa).
+3. O script executa `comunicacao_uart.py`, `particle_filter.py` e `comparar_resultados.py` em sequência com o mesmo cenário.
 
 Os arquivos em `Resultados/` são sobrescritos a cada execução. Portanto, gere **ambos** novamente antes de comparar outro cenário. Para comandos completos da placa e do Renode, consulte o [README](../README.md).
