@@ -82,6 +82,18 @@ Instale-as a partir da raiz do projeto:
 py -m pip install -r .\Python\requirements.txt
 ```
 
+ou
+
+```powershell
+python -m pip install -r .\Python\requirements.txt
+```
+
+ou
+
+```powershell
+python3 -m pip install -r .\Python\requirements.txt
+```
+
 ### Emulação opcional
 
 - Renode instalado em `C:\Program Files\Renode`.
@@ -104,10 +116,34 @@ Depois de compilar o firmware e iniciar o Renode em outro terminal (`.\Renode\in
 .\executar_teste.ps1 -Cenario 60 -Modo Renode
 ```
 
+ou, se o comando disponível for `python` ou `python3`:
+
+```powershell
+.\executar_teste.ps1 -Cenario 60 -Modo Renode -Python python
+```
+
+ou
+
+```powershell
+.\executar_teste.ps1 -Cenario 60 -Modo Renode -Python python3
+```
+
 Para usar a placa já gravada, substitua a porta conforme o PC:
 
 ```powershell
 .\executar_teste.ps1 -Cenario 60 -Modo Placa -Porta COM3
+```
+
+ou
+
+```powershell
+.\executar_teste.ps1 -Cenario 60 -Modo Placa -Porta COM3 -Python python
+```
+
+ou
+
+```powershell
+.\executar_teste.ps1 -Cenario 60 -Modo Placa -Porta COM3 -Python python3
 ```
 
 `-Cenario` aceita o número de etapas dos arquivos `Dados_Teste/cenario_N_etapas.csv` (para 1, `cenario_1_etapa.csv`) ou o caminho de um CSV. `-Modo Renode` é o padrão; `-Modo Placa` usa a detecção automática de porta se `-Porta` for omitido. O script usa `py` do terminal; para escolher outro executável, informe `-Python`. Ele executa o cliente UART, a referência Python e o comparador **nessa ordem**, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
@@ -120,6 +156,18 @@ Para listar as portas disponíveis pelo terminal, execute na raiz do projeto:
 .\listar_portas.ps1
 ```
 
+ou
+
+```powershell
+.\listar_portas.ps1 -Python python
+```
+
+ou
+
+```powershell
+.\listar_portas.ps1 -Python python3
+```
+
 O script chama `comunicacao_uart.py --listar-portas` usando `py` e mostra a porta e a descrição, como `COM3: STMicroelectronics STLink Virtual COM Port`, quando ela estiver disponível. Ele não abre a porta nem inicia o filtro. As dependências de `Python/requirements.txt` precisam estar instaladas; para usar outro executável Python, informe `-Python`.
 
 1. Compile o projeto e grave o firmware na NUCLEO-F030R8 pelo STM32CubeIDE.
@@ -129,6 +177,18 @@ O script chama `comunicacao_uart.py --listar-portas` usando `py` e mostra a port
 
 ```powershell
 py .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_20_etapas.csv
+```
+
+ou
+
+```powershell
+python .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_20_etapas.csv
+```
+
+ou
+
+```powershell
+python3 .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_20_etapas.csv
 ```
 
 Substitua `COM3` pela porta correspondente à placa. Para informar as medições manualmente, omita `--entradas`; o programa solicitará, em cada etapa:
@@ -145,6 +205,18 @@ Se houver somente uma porta serial disponível, ou uma única porta identificada
 py .\Python\comunicacao_uart.py
 ```
 
+ou
+
+```powershell
+python .\Python\comunicacao_uart.py
+```
+
+ou
+
+```powershell
+python3 .\Python\comunicacao_uart.py
+```
+
 ## Executar com o Renode
 
 Primeiro compile o firmware no STM32CubeIDE. Em um terminal PowerShell aberto na raiz do projeto, inicie a emulação:
@@ -159,6 +231,18 @@ Mantenha o Renode aberto. Em outro terminal, execute o cliente por TCP:
 py .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_20_etapas.csv
 ```
 
+ou
+
+```powershell
+python .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_20_etapas.csv
+```
+
+ou
+
+```powershell
+python3 .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_20_etapas.csv
+```
+
 O cliente usa o mesmo fluxo de entrada e gera o mesmo arquivo `Resultados/resultado_c.csv` usado no teste com a placa.
 
 Antes da primeira etapa, o cliente solicita ao firmware a configuração e mostra `Filtro de Particulas em C`, as dimensões do mapa e as quantidades de partículas e sensores. Recompile e reinicie o firmware depois de atualizar o código, pois o cliente agora usa o comando `INFO`.
@@ -171,6 +255,18 @@ Na raiz do projeto, execute:
 py .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_20_etapas.csv
 ```
 
+ou
+
+```powershell
+python .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_20_etapas.csv
+```
+
+ou
+
+```powershell
+python3 .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_20_etapas.csv
+```
+
 Use o mesmo arquivo indicado ao cliente UART. Para digitar as medições manualmente, omita `--entradas` e informe a mesma sequência utilizada no firmware. O resultado será salvo em `Resultados/resultado_python.csv`.
 
 O CSV de entrada contém `etapa,deslocamento,angulo,sensor_esquerda,sensor_direita,sensor_inferior,sensor_superior`. As distâncias estão em metros e o ângulo em graus. As etapas devem começar em 1 e ser consecutivas. As entradas são arredondadas para a resolução do protocolo UART: 1 micrômetro e 1 miligrau. O cliente também envia um sorteio para a reamostragem em cada etapa; esse valor é gerado automaticamente e não precisa constar no CSV de entrada.
@@ -181,6 +277,18 @@ Depois de gerar os dois CSVs, execute:
 
 ```powershell
 py .\Python\comparar_resultados.py
+```
+
+ou
+
+```powershell
+python .\Python\comparar_resultados.py
+```
+
+ou
+
+```powershell
+python3 .\Python\comparar_resultados.py
 ```
 
 O comparador verifica:
@@ -203,6 +311,18 @@ Para alterar explicitamente os limites no momento do teste:
 
 ```powershell
 py .\Python\comparar_resultados.py --tolerancia-primeira 0.00001 --tolerancia 0.01
+```
+
+ou
+
+```powershell
+python .\Python\comparar_resultados.py --tolerancia-primeira 0.00001 --tolerancia 0.01
+```
+
+ou
+
+```powershell
+python3 .\Python\comparar_resultados.py --tolerancia-primeira 0.00001 --tolerancia 0.01
 ```
 
 O programa termina com código `0` quando a validação passa, `1` quando alguma comparação falha e `2` quando os arquivos ou argumentos são inválidos.
