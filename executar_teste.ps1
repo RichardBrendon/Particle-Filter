@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $raizProjeto = $PSScriptRoot
 
-if ($Cenario -match '^\d+$') {
+if ($Cenario -match '^\d+(-\d+)?$') {
     $sufixo = if ($Cenario -eq '1') { 'etapa' } else { 'etapas' }
     $arquivoCenario = Join-Path $raizProjeto "Dados_Teste/cenario_${Cenario}_${sufixo}.csv"
 } elseif ([System.IO.Path]::IsPathRooted($Cenario)) {
