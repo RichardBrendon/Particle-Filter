@@ -24,14 +24,6 @@ Particle Filter/
 ├── Core/                       # Firmware e filtro de partículas em C
 ├── Drivers/                    # HAL e CMSIS fornecidos pela ST
 ├── Dados_Teste/                # Cenários de entrada para validação
-│   ├── cenario_1_etapa.csv
-│   ├── cenario_5_etapas.csv
-│   ├── cenario_10_etapas.csv
-│   ├── cenario_20_etapas.csv
-│   ├── cenario_25_etapas.csv
-│   ├── cenario_50_etapas.csv
-│   ├── cenario_100_etapas.csv
-│   └── cenario_60_etapas.csv
 ├── Python/
 │   ├── particle_filter.py       # Implementação de referência
 │   ├── comunicacao_uart.py      # Cliente para placa ou Renode
@@ -146,7 +138,7 @@ ou
 .\executar_teste.ps1 -Cenario 60 -Modo Placa -Porta COM3 -Python python3
 ```
 
-`-Cenario` aceita o número de etapas dos arquivos `Dados_Teste/cenario_N_etapas.csv` (para 1, `cenario_1_etapa.csv`) ou o caminho de um CSV. `-Modo Renode` é o padrão; `-Modo Placa` usa a detecção automática de porta se `-Porta` for omitido. O script usa `py` do terminal; para escolher outro executável, informe `-Python`. Ele executa o cliente UART, a referência Python e o comparador **nessa ordem**, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
+`-Cenario` aceita o número de etapas dos arquivos `Dados_Teste/cenario_N_etapas.csv` (para 1, `cenario_1_etapa.csv`), o identificador de uma variante como `20-2`, ou o caminho de um CSV. Por exemplo, `-Cenario 20-2` seleciona `Dados_Teste/cenario_20-2_etapas.csv`. `-Modo Renode` é o padrão; `-Modo Placa` usa a detecção automática de porta se `-Porta` for omitido. O script usa `py` do terminal; para escolher outro executável, informe `-Python`. Ele executa o cliente UART, a referência Python e o comparador **nessa ordem**, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
 
 ## Executar na placa
 
