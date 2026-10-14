@@ -193,16 +193,16 @@ O comparador verifica:
 - a distância entre as estimativas C e Python em cada etapa;
 - a diferença máxima e o RMSE do processo completo.
 
-O critério padrão provisório de concordância entre C e Python é uma diferença de no máximo `0,01 m` (1 cm) **em cada etapa**, sempre com as mesmas entradas e os mesmos sorteios da reamostragem. A distância é calculada a partir de `(x_estimado, y_estimado)` dos CSVs. A diferença máxima e o RMSE são apresentados como diagnóstico; o RMSE não é um segundo critério de aprovação, pois o limite em cada etapa já o implica. O desvio padrão das diferenças também não substitui o limite por etapa: ele pode ser baixo mesmo quando todas as diferenças são grandes. O valor de 1 cm não é uma garantia matemática nem um requisito de precisão absoluta da posição estimada. Foi escolhido inicialmente após o cenário de 20 etapas; os cenários de 50 e 100 etapas também passaram, mas não se deve aumentar o limite apenas para fazer um novo cenário passar.
+O critério de concordância entre C e Python é uma diferença de no máximo `0,00001 m` (10 micrômetros) **na primeira etapa** e `0,01 m` (1 cm) **em cada etapa seguinte**, sempre com as mesmas entradas e os mesmos sorteios da reamostragem. Em um cenário de uma etapa, aplica-se apenas o primeiro limite. A distância é calculada a partir de `(x_estimado, y_estimado)` dos CSVs. A diferença máxima e o RMSE são apresentados como diagnóstico; o RMSE não é um segundo critério de aprovação. O desvio padrão das diferenças também não substitui a verificação de cada etapa: ele pode ser baixo mesmo quando todas as diferenças são grandes. Esses limites são critérios de comparação entre implementações, não garantias matemáticas nem requisitos de precisão absoluta da posição estimada. O limite de 1 cm foi escolhido inicialmente após o cenário de 20 etapas; não se deve aumentá-lo apenas para fazer um novo cenário passar.
 
 `cenario_60_etapas.csv` é um teste adicional com movimentos diagonais, mudanças bruscas de direção e posições próximas às paredes. Os arquivos de 1, 5, 10, 20, 25, 50 e 100 etapas permitem observar a concordância em durações diferentes. Execute C e Python com o **mesmo** arquivo antes de comparar: os resultados anteriores são sobrescritos em cada execução. Se o teste falhar, investigue a etapa e a causa da divergência antes de rever o critério.
 
 O cliente UART e a referência Python usam a mesma semente do NumPy para gerar o ponto inicial da reamostragem. O firmware executa a reamostragem em C usando o sorteio recebido e preserva a sequência do seu gerador de movimento. Ainda podem ocorrer diferenças nos pesos acumulados e nos índices selecionados por causa da aritmética das duas implementações.
 
-Para alterar explicitamente o limite por etapa no momento do teste:
+Para alterar explicitamente os limites no momento do teste:
 
 ```powershell
-py .\Python\comparar_resultados.py --tolerancia 0.01
+py .\Python\comparar_resultados.py --tolerancia-primeira 0.00001 --tolerancia 0.01
 ```
 
 O programa termina com código `0` quando a validação passa, `1` quando alguma comparação falha e `2` quando os arquivos ou argumentos são inválidos.
