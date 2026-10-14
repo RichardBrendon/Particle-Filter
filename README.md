@@ -120,7 +120,7 @@ Para listar as portas disponíveis pelo terminal, execute na raiz do projeto:
 .\listar_portas.ps1
 ```
 
-O script mostra a porta e a descrição, como `COM3: STMicroelectronics STLink Virtual COM Port`, quando ela estiver disponível. Ele não abre a porta, não inicia o filtro e não depende de Python.
+O script chama `comunicacao_uart.py --listar-portas` usando `py` e mostra a porta e a descrição, como `COM3: STMicroelectronics STLink Virtual COM Port`, quando ela estiver disponível. Ele não abre a porta nem inicia o filtro. As dependências de `Python/requirements.txt` precisam estar instaladas; para usar outro executável Python, informe `-Python`.
 
 1. Compile o projeto e grave o firmware na NUCLEO-F030R8 pelo STM32CubeIDE.
 2. Identifique a porta COM do ST-LINK com `listar_portas.ps1` ou no Gerenciador de Dispositivos do Windows.
