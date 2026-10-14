@@ -40,6 +40,7 @@ Particle Filter/
 │   └── requirements.txt
 ├── Renode/                    # Plataforma e scripts de emulação
 ├── Resultados/                # CSVs gerados (não versionados)
+├── executar_teste.ps1         # Executa C, Python e comparação em sequência
 ├── Particle Filter.ioc         # Configuração do STM32CubeMX
 └── STM32F030R8TX_FLASH.ld     # Script de linker
 ```
@@ -77,7 +78,7 @@ Os dois fluxos usam a mesma sequência de sorteios para a reamostragem. O client
 Instale-as a partir da raiz do projeto:
 
 ```powershell
-python -m pip install -r .\Python\requirements.txt
+py -m pip install -r .\Python\requirements.txt
 ```
 
 ### Emulação opcional
@@ -94,6 +95,22 @@ python -m pip install -r .\Python\requirements.txt
 
 O firmware gerado fica em `Debug/Particle Filter.elf`.
 
+## Executar o teste completo com um comando
+
+Depois de compilar o firmware e iniciar o Renode em outro terminal (`.\Renode\iniciar.ps1`), execute na raiz do projeto:
+
+```powershell
+.\executar_teste.ps1 -Cenario 60 -Modo Renode
+```
+
+Para usar a placa já gravada, substitua a porta conforme o PC:
+
+```powershell
+.\executar_teste.ps1 -Cenario 60 -Modo Placa -Porta COM3
+```
+
+`-Cenario` aceita o número de etapas dos arquivos `Dados_Teste/cenario_N_etapas.csv` (para 1, `cenario_1_etapa.csv`) ou o caminho de um CSV. `-Modo Renode` é o padrão; `-Modo Placa` usa a detecção automática de porta se `-Porta` for omitido. O script usa `py` do terminal; para escolher outro executável, informe `-Python`. Ele executa o cliente UART, a referência Python e o comparador **nessa ordem**, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
+
 ## Executar na placa
 
 1. Compile o projeto e grave o firmware na NUCLEO-F030R8 pelo STM32CubeIDE.
@@ -102,7 +119,7 @@ O firmware gerado fica em `Debug/Particle Filter.elf`.
 4. Na raiz do projeto, execute com o cenário compartilhado:
 
 ```powershell
-python .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_20_etapas.csv
+py .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_20_etapas.csv
 ```
 
 Substitua `COM3` pela porta correspondente à placa. Para informar as medições manualmente, omita `--entradas`; o programa solicitará, em cada etapa:
@@ -116,7 +133,7 @@ Ao final, as respostas da placa são gravadas em `Resultados/resultado_c.csv`.
 Se houver somente uma porta serial disponível, ou uma única porta identificada como ST-LINK, também é possível executar sem `--porta`:
 
 ```powershell
-python .\Python\comunicacao_uart.py
+py .\Python\comunicacao_uart.py
 ```
 
 ## Executar com o Renode
@@ -130,17 +147,19 @@ Primeiro compile o firmware no STM32CubeIDE. Em um terminal PowerShell aberto na
 Mantenha o Renode aberto. Em outro terminal, execute o cliente por TCP:
 
 ```powershell
-python .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_20_etapas.csv
+py .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_20_etapas.csv
 ```
 
 O cliente usa o mesmo fluxo de entrada e gera o mesmo arquivo `Resultados/resultado_c.csv` usado no teste com a placa.
+
+Antes da primeira etapa, o cliente solicita ao firmware a configuração e mostra `Filtro de Particulas em C`, as dimensões do mapa e as quantidades de partículas e sensores. Recompile e reinicie o firmware depois de atualizar o código, pois o cliente agora usa o comando `INFO`.
 
 ## Executar a referência Python
 
 Na raiz do projeto, execute:
 
 ```powershell
-python .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_20_etapas.csv
+py .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_20_etapas.csv
 ```
 
 Use o mesmo arquivo indicado ao cliente UART. Para digitar as medições manualmente, omita `--entradas` e informe a mesma sequência utilizada no firmware. O resultado será salvo em `Resultados/resultado_python.csv`.
@@ -152,7 +171,7 @@ O CSV de entrada contém `etapa,deslocamento,angulo,sensor_esquerda,sensor_direi
 Depois de gerar os dois CSVs, execute:
 
 ```powershell
-python .\Python\comparar_resultados.py
+py .\Python\comparar_resultados.py
 ```
 
 O comparador verifica:
@@ -174,7 +193,7 @@ O cliente UART e a referência Python usam a mesma semente do NumPy para gerar o
 Para alterar explicitamente o limite por etapa no momento do teste:
 
 ```powershell
-python .\Python\comparar_resultados.py --tolerancia 0.01
+py .\Python\comparar_resultados.py --tolerancia 0.01
 ```
 
 O programa termina com código `0` quando a validação passa, `1` quando alguma comparação falha e `2` quando os arquivos ou argumentos são inválidos.
@@ -192,6 +211,7 @@ O cliente envia comandos ASCII terminados por quebra de linha. Distâncias são 
 
 ```text
 RESET
+INFO
 STEP,etapa,deslocamento_um,angulo_mgraus,esquerda_um,direita_um,inferior_um,superior_um,reamostragem_u53
 ```
 
@@ -199,6 +219,7 @@ Respostas esperadas:
 
 ```text
 READY
+INFO,largura_um,altura_um,numero_particulas,numero_sensores
 RESULT,etapa,x_medido_um,y_medido_um,x_estimado_um,y_estimado_um
 ```
 
