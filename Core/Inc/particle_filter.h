@@ -2,6 +2,7 @@
 #define PARTICLE_FILTER_H
 
 #define NUM_SENSORES 4
+#define NUM_PARTICULAS 1000
 #define MAPA_LARGURA 10.0f
 #define MAPA_ALTURA 8.0f
 
