@@ -21,8 +21,9 @@ ARQUIVO_C = DIRETORIO_RESULTADOS / "resultado_c.csv"
 ARQUIVO_PYTHON = DIRETORIO_RESULTADOS / "resultado_python.csv"
 
 CAMPOS_ENTRADA = CAMPOS_MEDICAO[1:]
-# Criterio provisorio de 1 cm; deve ser confirmado conforme a aplicacao.
-TOLERANCIA_PADRAO = 0.01
+TOLERANCIA_PRIMEIRA_ETAPA = 1.0e-5
+# Criterio provisorio de 1 cm nas etapas seguintes.
+TOLERANCIA_ETAPAS_SEGUINTES = 0.01
 TOLERANCIA_MEDIDO_UM = 1
 MAPA_LARGURA = 10.0
 MAPA_ALTURA = 8.0
@@ -92,8 +93,9 @@ def ler_resultados(caminho):
     return resultados
 
 
-def comparar(resultados_c, resultados_python, tolerancia):
-    """Exige a distancia de cada etapa dentro do limite; relata o RMSE."""
+def comparar(resultados_c, resultados_python, tolerancia_primeira,
+             tolerancia_seguintes):
+    """Verifica cada etapa com seu limite e relata o RMSE."""
     falhas = []
     distancias = []
 
@@ -164,6 +166,8 @@ def comparar(resultados_c, resultados_python, tolerancia):
             c["y_estimado"] - python["y_estimado"],
         )
         distancias.append(distancia)
+        tolerancia = (tolerancia_primeira if etapa_c == 1
+                      else tolerancia_seguintes)
         if distancia > tolerancia:
             problemas_etapa.append(
                 f"diferenca {distancia:.6f} m excede {tolerancia:.6f} m"
@@ -180,8 +184,9 @@ def comparar(resultados_c, resultados_python, tolerancia):
         rmse = math.sqrt(sum(d * d for d in distancias) / len(distancias))
         print(f"\nDiferenca maxima: {max(distancias):.6f} m")
         print(f"RMSE entre as estimativas: {rmse:.6f} m")
-    print(f"Tolerancia unica: {tolerancia:.6f} m")
-    print("Criterio: cada etapa deve respeitar o limite; RMSE e informativo.")
+    print(f"Tolerancia da primeira etapa: {tolerancia_primeira:.6f} m")
+    print(f"Tolerancia das demais etapas: {tolerancia_seguintes:.6f} m")
+    print("Criterio: cada etapa deve respeitar seu limite; RMSE e informativo.")
 
     if falhas:
         print("\nFALHOU")
@@ -201,10 +206,19 @@ def criar_argumentos():
         "-t",
         "--tolerancia",
         type=float,
-        default=TOLERANCIA_PADRAO,
+        default=TOLERANCIA_ETAPAS_SEGUINTES,
         help=(
-            "distancia maxima por etapa, em metros "
-            f"(padrao provisorio: {TOLERANCIA_PADRAO})"
+            "distancia maxima nas etapas seguintes, em metros "
+            f"(padrao provisorio: {TOLERANCIA_ETAPAS_SEGUINTES})"
+        ),
+    )
+    analisador.add_argument(
+        "--tolerancia-primeira",
+        type=float,
+        default=TOLERANCIA_PRIMEIRA_ETAPA,
+        help=(
+            "distancia maxima na primeira etapa, em metros "
+            f"(padrao: {TOLERANCIA_PRIMEIRA_ETAPA})"
         ),
     )
     return analisador.parse_args()
@@ -212,8 +226,9 @@ def criar_argumentos():
 
 def main():
     argumentos = criar_argumentos()
-    if not math.isfinite(argumentos.tolerancia) or argumentos.tolerancia < 0.0:
-        print("ERRO: a tolerancia deve ser um numero finito nao negativo.")
+    tolerancias = (argumentos.tolerancia_primeira, argumentos.tolerancia)
+    if any(not math.isfinite(valor) or valor < 0.0 for valor in tolerancias):
+        print("ERRO: as tolerancias devem ser numeros finitos nao negativos.")
         return 2
 
     try:
@@ -222,6 +237,7 @@ def main():
         passou = comparar(
             resultados_c,
             resultados_python,
+            argumentos.tolerancia_primeira,
             argumentos.tolerancia,
         )
     except (OSError, ErroComparacao) as erro:
