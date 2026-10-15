@@ -44,7 +44,6 @@
 #define DESVIO_SENSOR 0.20f
 #define PESO_MINIMO 1.0e-12f
 #define PI 3.1415927f
-#define SEMENTE_ALEATORIA 12345u
 
 /* Representa uma particula durante os calculos, com coordenadas em metros. */
 typedef struct {
@@ -182,10 +181,10 @@ static float ruido_normal(FiltroParticulas *filtro, float desvio) {
  * Globais afetadas: nenhuma diretamente; altera o argumento. main passa a
  * variável global filtro.
  */
-static void inicializar_estado(FiltroParticulas *filtro) {
+static void inicializar_estado(FiltroParticulas *filtro, uint32_t semente) {
     filtro->particulas = populacao_a;
     filtro->novas_particulas = populacao_b;
-    filtro->estado_aleatorio = SEMENTE_ALEATORIA;
+    filtro->estado_aleatorio = semente;
 
     /* Sem uma posicao inicial conhecida, usa prior uniforme no mapa. */
     for (int i = 0; i < NUM_PARTICULAS; i++) {
@@ -279,14 +278,15 @@ static float calcular_soma_e_estimativa(const FiltroParticulas *filtro,
 
 /* 
  * Reamostra sistematicamente: partículas de maior peso são selecionadas mais
- * vezes e os pesos retornam à distribuição uniforme. O ponto inicial vem da
- * amostra enviada pelo PC; a selecao e a troca de populacoes ocorrem aqui.
- * O gerador usado no movimento nao e avancado pela reamostragem. Cada peso
+ * vezes e os pesos retornam à distribuição uniforme. O ponto inicial e
+ * sorteado pelo proprio filtro usando seu gerador pseudoaleatorio. Cada peso
  * e recalculado e normalizado pela soma total quando necessario, sem vetor
  * adicional de pesos. A segunda populacao compactada fica em memoria estatica.
  */
 static void reamostrar(FiltroParticulas *filtro, const Medicao *medicao,
-                       float soma_pesos, double amostra_reamostragem) {
+                       float soma_pesos) {
+    /* Divisao por 2^32 garante um sorteio em [0, 1), sem incluir 1. */
+    double amostra_reamostragem = (double)proximo_aleatorio(filtro) / 4294967296.0;
     if (soma_pesos <= PESO_MINIMO) {
         for (int i = 0; i < NUM_PARTICULAS; i++) {
             filtro->novas_particulas[i] = filtro->particulas[i];
@@ -320,18 +320,17 @@ static void reamostrar(FiltroParticulas *filtro, const Medicao *medicao,
     }
 }
 
-void filtro_inicializar(void) {
-    inicializar_estado(&filtro);
+void filtro_inicializar(uint32_t semente) {
+    inicializar_estado(&filtro, semente);
 }
 
-Posicao filtro_processar(const Medicao *medicao,
-                        double amostra_reamostragem) {
+Posicao filtro_processar(const Medicao *medicao) {
     Posicao estimativa;
     float soma_pesos;
 
     prever_particulas(&filtro, medicao);
     soma_pesos = calcular_soma_e_estimativa(&filtro, medicao, &estimativa);
-    reamostrar(&filtro, medicao, soma_pesos, amostra_reamostragem);
+    reamostrar(&filtro, medicao, soma_pesos);
 
     return estimativa;
 }
