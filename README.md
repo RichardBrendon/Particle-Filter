@@ -50,7 +50,7 @@ flowchart LR
     C --> E[resultado_python.csv]
     D --> F[Comparar todos os testes]
     E --> F
-    F --> G[PASSOU ou FALHOU]
+    F --> G[PASSOU ou FALHOU por teste]
 ```
 
 Os dois fluxos usam a mesma semente por teste para reproduzir a inicialização e o ruído do movimento. O firmware gera seu próprio sorteio para a reamostragem; a referência usa a função pronta do FilterPy. Como a estimativa é calculada antes da reamostragem e cada teste tem só uma etapa, esses sorteios podem ser diferentes sem afetar a posição comparada. Veja os fluxogramas e a explicação dos testes em [Funcionamento e validação](docs/funcionamento-e-validacao.md).
@@ -333,14 +333,14 @@ ou
 python3 .\Python\comparar_resultados.py --tolerancia 0.00001
 ```
 
-O programa termina com código `0` quando a validação passa, `1` quando alguma comparação falha e `2` quando os arquivos ou argumentos são inválidos.
+O comparador apresenta `PASSOU` ou `FALHOU` por teste, com o motivo de eventuais falhas, sem emitir um veredito final para o conjunto. A tolerância padrão é `10⁻⁵ m`. Diferença máxima e RMSE são apenas informativos. Para a automação, o programa termina com código `0` quando nenhum teste falha, `1` quando algum teste falha e `2` quando os arquivos ou argumentos são inválidos. Um resultado ausente em um dos CSVs é indicado como falha do teste correspondente.
 
 ## Fluxo recomendado de validação
 
 1. Execute o firmware na placa ou no Renode com `--entradas` apontando para um CSV de medições.
 2. Execute `particle_filter.py` com o mesmo `--entradas`.
 3. Execute `comparar_resultados.py`.
-4. Verifique a indicação `PASSOU` ou `FALHOU` para cada teste e para o conjunto completo.
+4. Verifique a indicação `PASSOU` ou `FALHOU` e os motivos de falha para cada teste.
 
 ## Protocolo de comunicação
 
