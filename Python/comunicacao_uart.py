@@ -3,18 +3,15 @@
 import argparse
 import csv
 import math
+import secrets
 import socket
 import sys
 import time
 from pathlib import Path
 
-import numpy as np
-
 from medicoes import (
     CAMPOS_RESULTADO,
-    ESCALA_REAMOSTRAGEM,
     LIMITES_SENSORES,
-    SEMENTE_REAMOSTRAGEM,
     criar_medicao,
     ler_arquivo_medicoes,
 )
@@ -141,15 +138,15 @@ def ler_float(mensagem, minimo=None, maximo=None):
         return valor
 
 
-def ler_numero_etapas():
+def ler_numero_testes():
     while True:
         try:
-            etapas = int(input("Numero de etapas: "))
+            testes = int(input("Numero de testes: "))
         except ValueError:
             print("Informe um numero inteiro positivo.")
             continue
-        if etapas > 0:
-            return etapas
+        if testes > 0:
+            return testes
         print("Informe um numero inteiro positivo.")
 
 
@@ -228,7 +225,7 @@ def abrir_conexao(porta_serial, endereco_tcp, timeout):
 
 def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
     medicoes = ler_arquivo_medicoes(arquivo_entradas) if arquivo_entradas else None
-    numero_etapas = len(medicoes) if medicoes else ler_numero_etapas()
+    numero_testes = len(medicoes) if medicoes else ler_numero_testes()
     ARQUIVO_RESULTADO.parent.mkdir(exist_ok=True)
     conexao, descricao = abrir_conexao(porta_serial, endereco_tcp, timeout)
 
@@ -236,7 +233,6 @@ def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
         time.sleep(0.2)
         sincronizar(conexao)
         largura, altura, particulas, sensores_configurados = obter_info(conexao)
-        np.random.seed(SEMENTE_REAMOSTRAGEM)
         print("Filtro de Particulas em C")
         print(f"Mapa: {largura:.1f} m x {altura:.1f} m")
         print(f"Particulas: {particulas} | Sensores: {sensores_configurados}")
@@ -246,10 +242,10 @@ def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
             escritor = csv.writer(arquivo)
             escritor.writerow(CAMPOS_RESULTADO)
 
-            for etapa in range(1, numero_etapas + 1):
-                print(f"\nEtapa {etapa} de {numero_etapas}")
+            for teste in range(1, numero_testes + 1):
+                print(f"\nTeste {teste} de {numero_testes} | Etapa 1 de 1")
                 if medicoes:
-                    medicao = medicoes[etapa - 1]
+                    medicao = medicoes[teste - 1]
                 else:
                     deslocamento = ler_float("Deslocamento (m): ")
                     angulo = ler_float("Angulo do movimento (graus): ")
@@ -259,22 +255,22 @@ def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
                         )
                         for nome, limite in zip(NOMES_SENSORES, LIMITES_SENSORES)
                     ]
-                    medicao = criar_medicao(etapa, deslocamento, angulo, sensores)
+                    medicao = criar_medicao(teste, deslocamento, angulo, sensores)
 
-                # O FilterPy consumira o mesmo sorteio na etapa correspondente.
-                amostra_u53 = int(np.random.random() * ESCALA_REAMOSTRAGEM)
+                semente = secrets.randbits(32)
+                if enviar_comando(conexao, f"RESET,{semente}") != "READY":
+                    raise ErroComunicacao("O firmware nao confirmou o reinicio do teste.")
                 campos = [
                     "STEP",
-                    str(etapa),
+                    "1",
                     str(medicao.deslocamento_um),
                     str(medicao.angulo_mgraus),
                     *(str(valor) for valor in medicao.sensores_um),
-                    str(amostra_u53),
                 ]
                 resposta = enviar_comando(conexao, ",".join(campos))
-                resultado = processar_resposta(resposta, etapa)
+                resultado = processar_resposta(resposta, 1)
                 escritor.writerow(
-                    (*medicao.campos_entrada(), amostra_u53,
+                    (*medicao.campos_entrada(), semente,
                      *(f"{valor:.6f}" for valor in resultado[1:]))
                 )
                 arquivo.flush()
