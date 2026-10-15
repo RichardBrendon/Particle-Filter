@@ -162,7 +162,7 @@ def estimar_posicao(particulas, pesos):
     return x_estimado, y_estimado
 
 
-def formatar_medido_como_uart(valor):
+def formatar_como_uart(valor):
     """Reproduz a conversao float32 -> micrometros feita pelo firmware."""
     escalado = np.float32(np.float32(valor) * np.float32(ESCALA_METROS))
     arredondamento = np.float32(0.5 if escalado >= 0 else -0.5)
@@ -263,10 +263,10 @@ def main():
             escritor.writerow((
                 *medicao.campos_entrada(),
                 semente,
-                formatar_medido_como_uart(x_medido),
-                formatar_medido_como_uart(y_medido),
-                f"{float(x_estimado):.6f}",
-                f"{float(y_estimado):.6f}",
+                formatar_como_uart(x_medido),
+                formatar_como_uart(y_medido),
+                formatar_como_uart(x_estimado),
+                formatar_como_uart(y_estimado),
             ))
 
             print(f"Posicao estimada: ({float(x_estimado):.6f}, {float(y_estimado):.6f}) m")
