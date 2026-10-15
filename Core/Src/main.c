@@ -65,8 +65,6 @@ static void MX_USART2_UART_Init(void);
 #define UART_LINHA_TAMANHO 160
 #define ESCALA_METROS 1000000.0f
 #define ESCALA_ANGULO 1000.0f
-#define ESCALA_REAMOSTRAGEM 9007199254740992.0
-#define AMOSTRA_REAMOSTRAGEM_MAXIMA 9007199254740991ULL
 
 static void uart_enviar(const char *texto)
 {
@@ -123,9 +121,9 @@ static int ler_inteiro(const char *texto, int32_t *valor)
   return 1;
 }
 
-static int ler_amostra_reamostragem(const char *texto, uint64_t *valor)
+static int ler_semente(const char *texto, uint32_t *valor)
 {
-  uint64_t convertido = 0;
+  uint32_t convertido = 0;
   if (*texto == '\0')
   {
     return 0;
@@ -138,7 +136,7 @@ static int ler_amostra_reamostragem(const char *texto, uint64_t *valor)
       return 0;
     }
     digito = (unsigned int)(*texto - '0');
-    if (convertido > (AMOSTRA_REAMOSTRAGEM_MAXIMA - digito) / 10u)
+    if (convertido > (UINT32_MAX - digito) / 10u)
     {
       return 0;
     }
@@ -158,7 +156,6 @@ static int32_t metros_para_inteiro(float valor)
 static int processar_step(char *linha)
 {
   int32_t valores[7];
-  uint64_t amostra_u53;
   char *token = strtok(linha, ",");
   char resposta[128];
   Medicao medicao;
@@ -179,12 +176,6 @@ static int processar_step(char *linha)
       uart_enviar("ERROR,CAMPOS_INVALIDOS\n");
       return 1;
     }
-  }
-  token = strtok(NULL, ",");
-  if (token == NULL || !ler_amostra_reamostragem(token, &amostra_u53))
-  {
-    uart_enviar("ERROR,CAMPOS_INVALIDOS\n");
-    return 1;
   }
   if (strtok(NULL, ",") != NULL)
   {
@@ -209,8 +200,7 @@ static int processar_step(char *linha)
     return 1;
   }
 
-  estimativa = filtro_processar(
-      &medicao, (double)amostra_u53 / ESCALA_REAMOSTRAGEM);
+  estimativa = filtro_processar(&medicao);
   x_medido = (medicao.sensores[0] +
               (MAPA_LARGURA - medicao.sensores[1])) / 2.0f;
   y_medido = (medicao.sensores[2] +
@@ -242,9 +232,21 @@ static void processar_comando_uart(void)
     uart_enviar("ERROR,UART\n");
     return;
   }
+  if (strncmp(linha, "RESET,", 6) == 0)
+  {
+    uint32_t semente;
+    if (!ler_semente(linha + 6, &semente))
+    {
+      uart_enviar("ERROR,SEMENTE_INVALIDA\n");
+      return;
+    }
+    filtro_inicializar(semente);
+    uart_enviar("READY\n");
+    return;
+  }
   if (strcmp(linha, "RESET") == 0)
   {
-    filtro_inicializar();
+    filtro_inicializar(0u);
     uart_enviar("READY\n");
     return;
   }
@@ -303,7 +305,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  filtro_inicializar();
+  filtro_inicializar(0u);
   uart_enviar("READY\n");
 
   /* USER CODE END 2 */
