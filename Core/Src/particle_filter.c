@@ -250,29 +250,26 @@ static float calcular_soma_e_estimativa(const FiltroParticulas *filtro,
 
     for (int i = 0; i < NUM_PARTICULAS; i++) {
         Particula particula;
-        float peso;
         descompactar_particula(&filtro->particulas[i], &particula);
-        peso = calcular_peso(&particula, medicao);
-        soma_pesos += peso;
-        soma_x += particula.x * peso;
-        soma_y += particula.y * peso;
+        soma_pesos += calcular_peso(&particula, medicao);
     }
 
-    if (soma_pesos <= PESO_MINIMO) {
-        soma_x = 0.0f;
-        soma_y = 0.0f;
-        for (int i = 0; i < NUM_PARTICULAS; i++) {
-            Particula particula;
-            descompactar_particula(&filtro->particulas[i], &particula);
-            soma_x += particula.x;
-            soma_y += particula.y;
+    /* Segue a referencia: normaliza cada peso antes de multiplicar e somar.
+     * Recalcula os pesos nesta segunda passagem para nao guardar um vetor. */
+    for (int i = 0; i < NUM_PARTICULAS; i++) {
+        Particula particula;
+        float peso_normalizado;
+        descompactar_particula(&filtro->particulas[i], &particula);
+        if (soma_pesos <= PESO_MINIMO) {
+            peso_normalizado = 1.0f / (float)NUM_PARTICULAS;
+        } else {
+            peso_normalizado = calcular_peso(&particula, medicao) / soma_pesos;
         }
-        estimativa->x = soma_x / (float)NUM_PARTICULAS;
-        estimativa->y = soma_y / (float)NUM_PARTICULAS;
-    } else {
-        estimativa->x = soma_x / soma_pesos;
-        estimativa->y = soma_y / soma_pesos;
+        soma_x += particula.x * peso_normalizado;
+        soma_y += particula.y * peso_normalizado;
     }
+    estimativa->x = soma_x;
+    estimativa->y = soma_y;
     return soma_pesos;
 }
 
