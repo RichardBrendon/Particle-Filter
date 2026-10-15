@@ -4,6 +4,7 @@ import argparse
 import csv
 import math
 import sys
+from itertools import zip_longest
 from pathlib import Path
 
 from medicoes import (
@@ -92,16 +93,18 @@ def comparar(resultados_c, resultados_python, tolerancia):
     falhas = []
     distancias = []
 
-    if len(resultados_c) != len(resultados_python):
-        falhas.append(
-            "Quantidade de testes diferente: "
-            f"C={len(resultados_c)}, Python={len(resultados_python)}."
-        )
-
     print("\nTeste | Distancia C x Python | Tolerancia | Resultado")
     print("------|----------------------|------------|----------")
 
-    for c, python in zip(resultados_c, resultados_python):
+    for c, python in zip_longest(resultados_c, resultados_python):
+        if c is None or python is None:
+            teste = (python if c is None else c)["teste"]
+            origem = "C" if c is None else "Python"
+            motivo = f"Teste {teste}: resultado ausente em {origem}."
+            print(f"{teste:5d} | {'---':>20}   | {tolerancia:8.6f} m | FALHOU")
+            print(f"      Motivo: {motivo}")
+            falhas.append(motivo)
+            continue
         etapa_c = c["teste"]
         etapa_python = python["teste"]
         problemas_etapa = []
@@ -166,6 +169,8 @@ def comparar(resultados_c, resultados_python, tolerancia):
             f"{tolerancia:8.6f} m | {estado}"
         )
         falhas.extend(f"Teste {etapa_c}: {item}." for item in problemas_etapa)
+        for problema in problemas_etapa:
+            print(f"      Motivo: {problema}.")
 
     if distancias:
         rmse = math.sqrt(sum(d * d for d in distancias) / len(distancias))
@@ -174,14 +179,8 @@ def comparar(resultados_c, resultados_python, tolerancia):
     print(f"Tolerancia por teste de uma etapa: {tolerancia:.6f} m")
     print("Criterio: cada teste deve respeitar o limite; RMSE e informativo.")
 
-    if falhas:
-        print("\nFALHOU")
-        for falha in falhas:
-            print(f"- {falha}")
-        return False
-
-    print("\nPASSOU: a implementacao C esta de acordo com a referencia Python.")
-    return True
+    # O codigo de saida sinaliza falhas para a automacao, sem veredito geral.
+    return not falhas
 
 
 def criar_argumentos():
