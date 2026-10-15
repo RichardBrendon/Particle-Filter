@@ -10,7 +10,6 @@ from medicoes import (
     CAMPOS_MEDICAO,
     CAMPOS_RESULTADO,
     ESCALA_METROS,
-    ESCALA_REAMOSTRAGEM,
     LIMITES_SENSORES,
 )
 
@@ -21,9 +20,7 @@ ARQUIVO_C = DIRETORIO_RESULTADOS / "resultado_c.csv"
 ARQUIVO_PYTHON = DIRETORIO_RESULTADOS / "resultado_python.csv"
 
 CAMPOS_ENTRADA = CAMPOS_MEDICAO[1:]
-TOLERANCIA_PRIMEIRA_ETAPA = 1.0e-5
-# Criterio provisorio de 1 cm nas etapas seguintes.
-TOLERANCIA_ETAPAS_SEGUINTES = 0.01
+TOLERANCIA_TESTE = 1.0e-5
 TOLERANCIA_MEDIDO_UM = 1
 MAPA_LARGURA = 10.0
 MAPA_ALTURA = 8.0
@@ -55,13 +52,13 @@ def ler_resultados(caminho):
         for numero_linha, linha in enumerate(leitor, start=2):
             try:
                 resultado = {
-                    "etapa": int(linha["etapa"]),
-                    "reamostragem_u53": int(linha["reamostragem_u53"]),
+                    "teste": int(linha["teste"]),
+                    "semente": int(linha["semente"]),
                 }
                 resultado.update(
                     (campo, float(linha[campo]))
                     for campo in CAMPOS_RESULTADO[1:]
-                    if campo != "reamostragem_u53"
+                    if campo != "semente"
                 )
             except (TypeError, ValueError) as erro:
                 raise ErroComparacao(
@@ -72,15 +69,12 @@ def ler_resultados(caminho):
                 raise ErroComparacao(
                     f"Valor nao finito em {caminho.name}, linha {numero_linha}."
                 )
-            if resultado["etapa"] != len(resultados) + 1:
+            if resultado["teste"] != len(resultados) + 1:
                 raise ErroComparacao(
-                    f"Etapas fora de sequencia em {caminho.name}, linha {numero_linha}."
+                    f"Testes fora de sequencia em {caminho.name}, linha {numero_linha}."
                 )
-            if not 0 <= resultado["reamostragem_u53"] < ESCALA_REAMOSTRAGEM:
-                raise ErroComparacao(
-                    f"Sorteio da reamostragem invalido em {caminho.name}, "
-                    f"linha {numero_linha}."
-                )
+            if not 0 <= resultado["semente"] <= 0xFFFFFFFF:
+                raise ErroComparacao(f"Semente invalida em {caminho.name}, linha {numero_linha}.")
             for campo, limite in zip(CAMPOS_ENTRADA[2:], LIMITES_SENSORES):
                 if not 0.0 <= resultado[campo] <= limite:
                     raise ErroComparacao(
@@ -89,28 +83,27 @@ def ler_resultados(caminho):
             resultados.append(resultado)
 
     if not resultados:
-        raise ErroComparacao(f"{caminho.name} nao possui etapas para comparar.")
+        raise ErroComparacao(f"{caminho.name} nao possui testes para comparar.")
     return resultados
 
 
-def comparar(resultados_c, resultados_python, tolerancia_primeira,
-             tolerancia_seguintes):
-    """Verifica cada etapa com seu limite e relata o RMSE."""
+def comparar(resultados_c, resultados_python, tolerancia):
+    """Verifica cada teste independente de uma etapa e relata o RMSE."""
     falhas = []
     distancias = []
 
     if len(resultados_c) != len(resultados_python):
         falhas.append(
-            "Quantidade de etapas diferente: "
+            "Quantidade de testes diferente: "
             f"C={len(resultados_c)}, Python={len(resultados_python)}."
         )
 
-    print("\nEtapa | Distancia C x Python | Tolerancia | Resultado")
+    print("\nTeste | Distancia C x Python | Tolerancia | Resultado")
     print("------|----------------------|------------|----------")
 
     for c, python in zip(resultados_c, resultados_python):
-        etapa_c = c["etapa"]
-        etapa_python = python["etapa"]
+        etapa_c = c["teste"]
+        etapa_python = python["teste"]
         problemas_etapa = []
 
         if etapa_c != etapa_python:
@@ -124,12 +117,8 @@ def comparar(resultados_c, resultados_python, tolerancia_primeira,
                     f"entrada {campo} diferente (C={c[campo]:.6f}, "
                     f"Python={python[campo]:.6f})"
                 )
-        if c["reamostragem_u53"] != python["reamostragem_u53"]:
-            problemas_etapa.append(
-                "sorteio da reamostragem diferente "
-                f"(C={c['reamostragem_u53']}, "
-                f"Python={python['reamostragem_u53']})"
-            )
+        if c["semente"] != python["semente"]:
+            problemas_etapa.append("sementes diferentes entre C e Python")
 
         for nome, resultado in (("C", c), ("Python", python)):
             esperado_x = (resultado["sensor_esquerda"] +
@@ -166,8 +155,6 @@ def comparar(resultados_c, resultados_python, tolerancia_primeira,
             c["y_estimado"] - python["y_estimado"],
         )
         distancias.append(distancia)
-        tolerancia = (tolerancia_primeira if etapa_c == 1
-                      else tolerancia_seguintes)
         if distancia > tolerancia:
             problemas_etapa.append(
                 f"diferenca {distancia:.6f} m excede {tolerancia:.6f} m"
@@ -178,15 +165,14 @@ def comparar(resultados_c, resultados_python, tolerancia_primeira,
             f"{etapa_c:5d} | {distancia:20.6f} m | "
             f"{tolerancia:8.6f} m | {estado}"
         )
-        falhas.extend(f"Etapa {etapa_c}: {item}." for item in problemas_etapa)
+        falhas.extend(f"Teste {etapa_c}: {item}." for item in problemas_etapa)
 
     if distancias:
         rmse = math.sqrt(sum(d * d for d in distancias) / len(distancias))
         print(f"\nDiferenca maxima: {max(distancias):.6f} m")
         print(f"RMSE entre as estimativas: {rmse:.6f} m")
-    print(f"Tolerancia da primeira etapa: {tolerancia_primeira:.6f} m")
-    print(f"Tolerancia das demais etapas: {tolerancia_seguintes:.6f} m")
-    print("Criterio: cada etapa deve respeitar seu limite; RMSE e informativo.")
+    print(f"Tolerancia por teste de uma etapa: {tolerancia:.6f} m")
+    print("Criterio: cada teste deve respeitar o limite; RMSE e informativo.")
 
     if falhas:
         print("\nFALHOU")
@@ -200,25 +186,16 @@ def comparar(resultados_c, resultados_python, tolerancia_primeira,
 
 def criar_argumentos():
     analisador = argparse.ArgumentParser(
-        description="Compara todas as etapas dos resultados C e Python."
+        description="Compara os testes independentes de uma etapa dos resultados C e Python."
     )
     analisador.add_argument(
         "-t",
         "--tolerancia",
         type=float,
-        default=TOLERANCIA_ETAPAS_SEGUINTES,
+        default=TOLERANCIA_TESTE,
         help=(
-            "distancia maxima nas etapas seguintes, em metros "
-            f"(padrao provisorio: {TOLERANCIA_ETAPAS_SEGUINTES})"
-        ),
-    )
-    analisador.add_argument(
-        "--tolerancia-primeira",
-        type=float,
-        default=TOLERANCIA_PRIMEIRA_ETAPA,
-        help=(
-            "distancia maxima na primeira etapa, em metros "
-            f"(padrao: {TOLERANCIA_PRIMEIRA_ETAPA})"
+            "distancia maxima por teste, em metros "
+            f"(padrao: {TOLERANCIA_TESTE})"
         ),
     )
     return analisador.parse_args()
@@ -226,8 +203,7 @@ def criar_argumentos():
 
 def main():
     argumentos = criar_argumentos()
-    tolerancias = (argumentos.tolerancia_primeira, argumentos.tolerancia)
-    if any(not math.isfinite(valor) or valor < 0.0 for valor in tolerancias):
+    if not math.isfinite(argumentos.tolerancia) or argumentos.tolerancia < 0.0:
         print("ERRO: as tolerancias devem ser numeros finitos nao negativos.")
         return 2
 
@@ -237,7 +213,6 @@ def main():
         passou = comparar(
             resultados_c,
             resultados_python,
-            argumentos.tolerancia_primeira,
             argumentos.tolerancia,
         )
     except (OSError, ErroComparacao) as erro:
