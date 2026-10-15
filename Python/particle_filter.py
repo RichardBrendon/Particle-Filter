@@ -9,21 +9,18 @@ from filterpy.monte_carlo import systematic_resample
 from medicoes import (
     CAMPOS_RESULTADO,
     ESCALA_METROS,
-    ESCALA_REAMOSTRAGEM,
-    SEMENTE_REAMOSTRAGEM,
     criar_medicao,
     ler_arquivo_medicoes,
+    ler_testes_registrados,
 )
 
 NUM_PARTICULAS = 1000
 NUM_SENSORES = 4
-NUM_ETAPAS_PADRAO = 1
 MAPA_LARGURA = np.float32(10.0)
 MAPA_ALTURA = np.float32(8.0)
 DESVIO_MOVIMENTO = np.float32(0.08)
 DESVIO_ANGULO = np.float32(0.03)
 DESVIO_SENSOR = np.float32(0.20)
-SEMENTE_ALEATORIA = 12345
 PI = np.float32(3.1415927)
 COORDENADA_MAXIMA = np.float32(4095.0)
 DIRETORIO_RESULTADOS = Path(__file__).resolve().parent.parent / "Resultados"
@@ -36,20 +33,18 @@ NOMES_SENSORES = (
 )
 
 
-def ler_numero_etapas():
-    texto = input(f"Numero de etapas: ").strip()
-    if not texto:
-        return NUM_ETAPAS_PADRAO
+def ler_numero_testes():
+    texto = input("Numero de testes: ").strip()
     try:
-        etapas = int(texto)
+        testes = int(texto)
     except ValueError as erro:
         raise ValueError("Informe um numero inteiro entre 1 e 1000000.") from erro
-    if not 1 <= etapas <= 1_000_000:
+    if not 1 <= testes <= 1_000_000:
         raise ValueError("Informe um numero inteiro entre 1 e 1000000.")
-    return etapas
+    return testes
 
 
-def ler_medicao(etapa, numero_etapas):
+def ler_medicao(teste):
     deslocamento = float(input("Deslocamento (m): "))
     angulo_graus = float(input("Angulo do movimento (graus): "))
     sensores = []
@@ -60,10 +55,10 @@ def ler_medicao(etapa, numero_etapas):
             raise ValueError(f"Distancia invalida para {nome}.")
         sensores.append(valor)
 
-    return criar_medicao(etapa, deslocamento, angulo_graus, sensores)
+    return criar_medicao(teste, deslocamento, angulo_graus, sensores)
 
 
-estado_aleatorio = SEMENTE_ALEATORIA
+estado_aleatorio = 0
 
 
 def proximo_aleatorio():
@@ -95,10 +90,10 @@ def quantizar_coordenada(valor, limite):
     )
 
 
-def inicializar_particulas():
+def inicializar_particulas(semente):
     """Cria as mesmas particulas iniciais da implementacao C."""
     global estado_aleatorio
-    estado_aleatorio = SEMENTE_ALEATORIA
+    estado_aleatorio = semente
     particulas = np.empty((NUM_PARTICULAS, 2), dtype=np.float32)
 
     for indice in range(NUM_PARTICULAS):
@@ -211,27 +206,39 @@ def main():
         "--entradas", type=Path,
         help="CSV com as mesmas medicoes enviadas ao firmware",
     )
+    analisador.add_argument(
+        "--resultados-c", type=Path,
+        default=DIRETORIO_RESULTADOS / "resultado_c.csv",
+        help="resultado C com as sementes dos testes a reproduzir",
+    )
     argumentos = analisador.parse_args()
     print("Filtro de Particulas em Python")
     print(f"Mapa: {MAPA_LARGURA:.1f} m x {MAPA_ALTURA:.1f} m")
     print(f"Particulas: {NUM_PARTICULAS} | Sensores: {NUM_SENSORES}")
     medicoes = ler_arquivo_medicoes(argumentos.entradas) if argumentos.entradas else None
-    numero_etapas = len(medicoes) if medicoes else ler_numero_etapas()
-    particulas = inicializar_particulas()
-    np.random.seed(SEMENTE_REAMOSTRAGEM)
-    sorteios_registro = np.random.RandomState(SEMENTE_REAMOSTRAGEM)
+    numero_testes = len(medicoes) if medicoes else ler_numero_testes()
+    testes_registrados = ler_testes_registrados(argumentos.resultados_c)
+    if len(testes_registrados) != numero_testes:
+        raise ValueError("Quantidade de testes diferente do resultado C. Execute C primeiro.")
+    if medicoes and medicoes != [medicao for medicao, _ in testes_registrados]:
+        raise ValueError("As entradas nao correspondem ao resultado C. Execute C novamente.")
     DIRETORIO_RESULTADOS.mkdir(exist_ok=True)
     with ARQUIVO_RESULTADO_PYTHON.open(
         "w", newline="", encoding="utf-8"
     ) as arquivo:
         escritor = csv.writer(arquivo)
         escritor.writerow(CAMPOS_RESULTADO)
-        for etapa in range(numero_etapas):
-            print(f"\nEtapa {etapa + 1} de {numero_etapas}")
+        for teste in range(1, numero_testes + 1):
+            print(f"\nTeste {teste} de {numero_testes} | Etapa 1 de 1")
             medicao = (
-                medicoes[etapa] if medicoes
-                else ler_medicao(etapa + 1, numero_etapas)
+                medicoes[teste - 1] if medicoes
+                else ler_medicao(teste)
             )
+            medicao_c, semente = testes_registrados[teste - 1]
+            if medicao != medicao_c:
+                raise ValueError(f"Entradas do teste {teste} diferentes do resultado C.")
+            particulas = inicializar_particulas(semente)
+            np.random.seed(semente)
             deslocamento = np.float32(medicao.deslocamento)
             angulo_graus = medicao.angulo
             sensores = np.asarray(medicao.sensores, dtype=np.float32)
@@ -248,17 +255,14 @@ def main():
                 (sensores[2] + np.float32(MAPA_ALTURA - sensores[3]))
                 / np.float32(2.0)
             )
-            # A reamostragem do FilterPy atualiza as particulas para a proxima etapa.
-            # Um gerador paralelo permite registrar o sorteio sem alterar o
-            # estado global que a funcao pronta do FilterPy consome.
-            amostra_u53 = int(sorteios_registro.random_sample()
-                              * ESCALA_REAMOSTRAGEM)
+            # Cada teste tem apenas uma etapa; a reamostragem continua sendo
+            # executada, mas a populacao e reinicializada no teste seguinte.
             indices = systematic_resample(pesos)
             particulas = particulas[indices].copy()
 
             escritor.writerow((
                 *medicao.campos_entrada(),
-                amostra_u53,
+                semente,
                 formatar_medido_como_uart(x_medido),
                 formatar_medido_como_uart(y_medido),
                 f"{float(x_estimado):.6f}",
