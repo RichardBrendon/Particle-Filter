@@ -1,6 +1,8 @@
 #ifndef PARTICLE_FILTER_H
 #define PARTICLE_FILTER_H
 
+#include <stdint.h>
+
 #define NUM_SENSORES 4
 #define NUM_PARTICULAS 1000
 #define MAPA_LARGURA 10.0f
@@ -17,10 +19,10 @@ typedef struct {
     float y; /* Metros. */
 } Posicao;
 
-/* Reinicia as particulas, os pesos e o gerador pseudoaleatorio. */
-void filtro_inicializar(void);
+/* Reinicia particulas e gerador pseudoaleatorio com a semente recebida do PC. */
+void filtro_inicializar(uint32_t semente);
 
-/* Executa uma etapa; amostra_reamostragem e o sorteio enviado pelo PC em [0, 1). */
-Posicao filtro_processar(const Medicao *medicao, double amostra_reamostragem);
+/* Executa uma etapa, incluindo o sorteio e a reamostragem no proprio filtro. */
+Posicao filtro_processar(const Medicao *medicao);
 
 #endif
