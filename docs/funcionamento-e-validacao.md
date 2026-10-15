@@ -49,7 +49,7 @@ Em cada teste, o comparador calcula a distância euclidiana entre as estimativas
 
 `d = sqrt((x_C - x_Python)^2 + (y_C - y_Python)^2)`
 
-O critério numérico é `d ≤ 0,00001 m` (10 micrômetros) **em todos os testes**, pois todos executam apenas a primeira etapa. O comparador também confere quantidade e ordem dos testes, entradas e sementes iguais, posições dentro do mapa e posições medidas compatíveis com os sensores, admitindo 1 micrômetro de diferença por arredondamento da UART. Qualquer falha torna o resultado geral `FALHOU`.
+O critério numérico padrão é `d ≤ 0,00001 m` (10 micrômetros) **em todos os testes**, pois todos executam apenas a primeira etapa. O comparador também confere quantidade e ordem dos testes, entradas e sementes iguais, posições dentro do mapa e posições medidas compatíveis com os sensores, admitindo 1 micrômetro de diferença por arredondamento da UART. Cada teste recebe seu próprio `PASSOU` ou `FALHOU`, com os motivos de falha; não há veredito final para o conjunto. Testes ausentes em um dos resultados recebem `FALHOU`. O código de saída permanece diferente de zero se houver falhas, para uso pelo script automatizado.
 
 A **diferença máxima** e o **RMSE** resumem o comportamento do cenário, mas o RMSE não decide a aprovação: um teste muito divergente poderia ser escondido pela média dos demais. O desvio padrão das diferenças não substitui esse critério, pois pode ser pequeno mesmo quando todas as diferenças são grandes. O limite compara as implementações; não afirma precisão absoluta de localização nem garante aprovação em qualquer cenário.
 
