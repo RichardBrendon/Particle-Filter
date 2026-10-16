@@ -93,7 +93,7 @@ def comparar(resultados_c, resultados_python, tolerancia):
     falhas = []
     distancias = []
 
-    print("\nTeste | Distancia C x Python | Tolerancia | Resultado")
+    print("\nTeste | Diferença C x Python | Tolerancia | Resultado")
     print("------|----------------------|------------|----------")
 
     for c, python in zip_longest(resultados_c, resultados_python):
