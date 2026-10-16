@@ -102,6 +102,52 @@ O firmware gerado fica em `Debug/Particle Filter.elf`.
 
 ## Executar o teste completo com um comando
 
+Para escolher as entradas por um menu, execute:
+
+```powershell
+py .\executar_teste.py
+```
+
+ou
+
+```powershell
+python .\executar_teste.py
+```
+
+ou
+
+```powershell
+python3 .\executar_teste.py
+```
+
+O menu oferece entrada manual, execução de um CSV existente e geração automática de testes. Também permite escolher Renode ou placa. No modo manual, informe a quantidade de testes e as medições de cada um uma única vez; o executor salva um cenário e o utiliza no C e na referência Python. Na geração automática, informe apenas a quantidade de testes.
+
+Os cenários manuais e gerados são salvos com nomes exclusivos em `Dados_Teste/`, e o caminho é mostrado antes da execução. Assim, é possível repetir as mesmas entradas usando `--cenario caminho.csv`. As sementes do filtro continuam registradas em `resultado_c.csv`; a referência recupera essas sementes. Ao executar novamente o cliente UART, novas sementes são sorteadas, mesmo se o CSV de entrada for o mesmo.
+
+Na geração automática, o nome segue `cenario_N_testes.csv`. Se já existir, o executor usa `cenario_N-2_testes.csv`, depois `cenario_N-3_testes.csv` e assim por diante, sem sobrescrever os arquivos existentes. Por exemplo, para 20 testes: `cenario_20_testes.csv`, `cenario_20-2_testes.csv`, `cenario_20-3_testes.csv`. Esses cenários podem ser selecionados com `--cenario 20`, `--cenario 20-2` e `--cenario 20-3`, respectivamente. Para um teste, o nome gerado é `cenario_1_testes.csv`.
+
+A geração automática usa sensores ideais no mapa de 10 × 8 m, com esquerda + direita = 10 m e inferior + superior = 8 m. Sorteia deslocamentos entre 0 e 2 m e ângulos entre 0° e 359,999°, escolhendo posições finais compatíveis com uma origem dentro do mapa. Cada linha é independente e não há ruído adicionado às leituras geradas. Para casos específicos, use a entrada manual ou um CSV conhecido.
+
+Para gerar e executar 20 testes sem passar pelo menu:
+
+```powershell
+py .\executar_teste.py --gerar-testes 20
+```
+
+ou
+
+```powershell
+python .\executar_teste.py --gerar-testes 20
+```
+
+ou
+
+```powershell
+python3 .\executar_teste.py --gerar-testes 20
+```
+
+Use `--manual` para ir diretamente à digitação das entradas. `--manual`, `--gerar-testes N` e `--cenario` são opções alternativas; escolha apenas uma por execução. Sem essas opções, o executor abre o menu. O firmware precisa estar compilado e ativo no Renode ou na placa antes do processamento.
+
 Depois de compilar o firmware e iniciar o Renode em outro terminal (`py .\Renode\iniciar.py`, ou com `python` ou `python3`), execute na raiz do projeto:
 
 ```powershell
@@ -138,7 +184,7 @@ ou
 python3 .\executar_teste.py --cenario 20 --modo placa --porta COM3
 ```
 
-`--cenario` aceita o número no nome dos arquivos `Dados_Teste/cenario_N_testes.csv` (para 1, `cenario_1_teste.csv`), um identificador de variante como `20-2`, ou o caminho de um CSV. Por exemplo, `--cenario 20` seleciona `Dados_Teste/cenario_20_testes.csv`. Cada linha representa um teste independente de uma etapa. `--modo renode` é o padrão; `--modo placa` usa a detecção automática de porta se `--porta` for omitido. Para alterar o endereço TCP, use `--endereco-renode HOST:PORTA` (padrão: `localhost:12345`). Os caminhos relativos de cenários são resolvidos a partir da raiz do projeto. O script usa `sys.executable` para executar o cliente UART, a referência Python e o comparador **nessa ordem**, com o mesmo interpretador que o iniciou, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
+`--cenario` aceita o número no nome dos arquivos `Dados_Teste/cenario_N_testes.csv`, um identificador de variante como `20-2`, ou o caminho de um CSV. Por exemplo, `--cenario 20` seleciona `Dados_Teste/cenario_20_testes.csv`. Cada linha representa um teste independente de uma etapa. Nos comandos diretos, `--modo renode` é o padrão; no menu, o executor pergunta o destino. `--modo placa` usa a detecção automática de porta se `--porta` for omitido. Para alterar o endereço TCP, use `--endereco-renode HOST:PORTA` (padrão: `localhost:12345`). Os caminhos relativos de cenários são resolvidos a partir da raiz do projeto. O script usa `sys.executable` para executar o cliente UART, a referência Python e o comparador **nessa ordem**, com o mesmo interpretador que o iniciou, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
 
 ## Executar na placa
 
