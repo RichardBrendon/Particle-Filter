@@ -122,9 +122,11 @@ python3 .\executar_teste.py
 
 O menu oferece entrada manual, execução de um CSV existente e geração automática de testes. Também permite escolher Renode ou placa. No modo manual, informe a quantidade de testes e as medições de cada um uma única vez; o executor salva um cenário e o utiliza no C e na referência Python. Na geração automática, informe apenas a quantidade de testes.
 
-Os cenários manuais e gerados são salvos com nomes exclusivos em `Dados_Teste/`, e o caminho é mostrado antes da execução. Assim, é possível repetir as mesmas entradas usando `--cenario caminho.csv`. As sementes do filtro continuam registradas em `resultado_c.csv`; a referência recupera essas sementes. Ao executar novamente o cliente UART, novas sementes são sorteadas, mesmo se o CSV de entrada for o mesmo.
+Os cenários manuais e gerados são salvos com nomes exclusivos em `Dados_Teste/`, e apenas o nome do arquivo é mostrado antes da execução. Assim, é possível repetir as mesmas entradas usando `--cenario nome.csv`. As sementes do filtro continuam registradas em `resultado_c.csv`; a referência recupera essas sementes. Ao executar novamente o cliente UART, novas sementes são sorteadas, mesmo se o CSV de entrada for o mesmo.
 
-Na geração automática, o nome segue `cenario_N_testes.csv`. Se já existir, o executor usa `cenario_N-2_testes.csv`, depois `cenario_N-3_testes.csv` e assim por diante, sem sobrescrever os arquivos existentes. Por exemplo, para 20 testes: `cenario_20_testes.csv`, `cenario_20-2_testes.csv`, `cenario_20-3_testes.csv`. Esses cenários podem ser selecionados com `--cenario 20`, `--cenario 20-2` e `--cenario 20-3`, respectivamente. Para um teste, o nome gerado é `cenario_1_testes.csv`.
+O repositório inclui apenas `Dados_Teste/cenario_20_testes.csv` como cenário de exemplo. Os demais arquivos dessa pasta são locais e ignorados pelo Git.
+
+Tanto na entrada manual quanto na geração automática, o nome segue `cenario_N_testes.csv`. Se já existir, o executor usa `cenario_N-2_testes.csv`, depois `cenario_N-3_testes.csv` e assim por diante, sem sobrescrever os arquivos existentes. A sequência é compartilhada entre os dois modos. Por exemplo, para 20 testes: `cenario_20_testes.csv`, `cenario_20-2_testes.csv`, `cenario_20-3_testes.csv`. Esses cenários podem ser selecionados com `--cenario 20`, `--cenario 20-2` e `--cenario 20-3`, respectivamente. Para um teste, o nome gerado é `cenario_1_testes.csv`.
 
 A geração automática usa sensores ideais no mapa de 10 × 8 m, com esquerda + direita = 10 m e inferior + superior = 8 m. Sorteia deslocamentos entre 0 e 2 m e ângulos entre 0° e 359,999°, escolhendo posições finais compatíveis com uma origem dentro do mapa. Cada linha é independente e não há ruído adicionado às leituras geradas. Para casos específicos, use a entrada manual ou um CSV conhecido.
 
@@ -184,7 +186,7 @@ ou
 python3 .\executar_teste.py --cenario 20 --modo placa --porta COM3
 ```
 
-`--cenario` aceita o número no nome dos arquivos `Dados_Teste/cenario_N_testes.csv`, um identificador de variante como `20-2`, ou o caminho de um CSV. Por exemplo, `--cenario 20` seleciona `Dados_Teste/cenario_20_testes.csv`. Cada linha representa um teste independente de uma etapa. Nos comandos diretos, `--modo renode` é o padrão; no menu, o executor pergunta o destino. `--modo placa` usa a detecção automática de porta se `--porta` for omitido. Para alterar o endereço TCP, use `--endereco-renode HOST:PORTA` (padrão: `localhost:12345`). Os caminhos relativos de cenários são resolvidos a partir da raiz do projeto. O script usa `sys.executable` para executar o cliente UART, a referência Python e o comparador **nessa ordem**, com o mesmo interpretador que o iniciou, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
+`--cenario` e a opção de CSV existente no menu aceitam um número como `250`, uma variante como `20-2`, o nome `cenario_250_testes` ou `cenario_250_testes.csv`, ou o caminho de um CSV. Nomes sem diretório são procurados em `Dados_Teste/`, e a extensão `.csv` é acrescentada quando omitida. Se o nome não existir nessa pasta, o executor também verifica a raiz do projeto. Caminhos relativos com diretório são resolvidos a partir da raiz do projeto. Cada linha representa um teste independente de uma etapa. Nos comandos diretos, `--modo renode` é o padrão; no menu, o executor pergunta o destino. `--modo placa` usa a detecção automática de porta se `--porta` for omitido. Para alterar o endereço TCP, use `--endereco-renode HOST:PORTA` (padrão: `localhost:12345`). O script usa `sys.executable` para executar o cliente UART, a referência Python e o comparador **nessa ordem**, com o mesmo interpretador que o iniciou, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
 
 ## Executar na placa
 
@@ -351,9 +353,9 @@ O comparador verifica:
 - se as posições medidas correspondem aos sensores e diferem em no máximo 1 micrômetro, considerando o arredondamento do protocolo UART;
 - se as estimativas permanecem dentro do mapa;
 - a distância entre as estimativas C e Python em cada teste;
-- a diferença máxima e o RMSE do processo completo.
+- a diferença máxima entre os testes comparados.
 
-O critério de concordância entre C e Python é uma diferença de no máximo `0,00001 m` (10 micrômetros) **em cada teste de uma etapa**, sempre com as mesmas entradas e a mesma semente. A distância é calculada a partir de `(x_estimado, y_estimado)` dos CSVs. A diferença máxima e o RMSE são apresentados como diagnóstico; o RMSE não é um segundo critério de aprovação. O desvio padrão das diferenças também não substitui a verificação de cada teste: ele pode ser baixo mesmo quando todas as diferenças são grandes. Esse limite compara as implementações; não afirma precisão absoluta de localização nem garante aprovação em qualquer cenário.
+O critério padrão de concordância entre C e Python exige diferença `0 m` **em cada teste de uma etapa**, sempre com as mesmas entradas e a mesma semente. As coordenadas `(x_estimado, y_estimado)` gravadas nos CSVs devem coincidir exatamente. Isso verifica igualdade na resolução dos arquivos, não igualdade dos valores internos antes da conversão. A diferença máxima é apresentada como diagnóstico. Qualquer diferença não nula entre as estimativas faz o teste falhar, inclusive diferenças pequenas de arredondamento entre bibliotecas matemáticas. Esse critério não afirma precisão absoluta de localização.
 
 `cenario_20_testes.csv` contém 20 testes independentes com movimentos e posições variados, incluindo posições no centro e próximas às paredes. Cada teste reinicializa o filtro e executa apenas a etapa 1. Execute C e Python com o **mesmo** arquivo antes de comparar: os resultados anteriores são sobrescritos em cada execução. Se um teste falhar, investigue a entrada e a causa da divergência antes de rever o critério.
 
@@ -364,33 +366,35 @@ O firmware gera o ponto inicial da reamostragem com seu gerador pseudoaleatório
 Para alterar explicitamente o limite por teste:
 
 ```powershell
-py .\Python\comparar_resultados.py --tolerancia 0.00001
+py .\Python\comparar_resultados.py --tolerancia 0
 ```
 
 ou
 
 ```powershell
-python .\Python\comparar_resultados.py --tolerancia 0.00001
+python .\Python\comparar_resultados.py --tolerancia 0
 ```
 
 ou
 
 ```powershell
-python3 .\Python\comparar_resultados.py --tolerancia 0.00001
+python3 .\Python\comparar_resultados.py --tolerancia 0
 ```
 
-O comparador apresenta `PASSOU` ou `FALHOU` por teste, com o motivo de eventuais falhas, sem emitir um veredito final para o conjunto. A tolerância padrão é `10⁻⁵ m`. Diferença máxima e RMSE são apenas informativos. Para a automação, o programa termina com código `0` quando nenhum teste falha, `1` quando algum teste falha e `2` quando os arquivos ou argumentos são inválidos. Um resultado ausente em um dos CSVs é indicado como falha do teste correspondente.
+O comparador apresenta `PASSOU` ou `FALHOU` por teste, sem exibir os motivos nem emitir um veredito final para o conjunto. A tolerância padrão entre estimativas é `0 m`. A diferença máxima é apenas informativa. O comparador e o executor terminam com código `0` quando o procedimento é concluído, mesmo que alguns testes recebam `FALHOU`. O código `1` indica que um erro impediu a conclusão, por exemplo arquivo inválido, erro de comunicação ou cancelamento. Argumentos inválidos também retornam `1`. Um resultado ausente em um dos CSVs é indicado como falha do teste correspondente; se o comparador conseguir processar os arquivos e terminar o relatório, retorna `0`.
 
 ## Fluxo recomendado de validação
+
+Ao final da comparação, o programa também mostra o total de testes que passaram e o total que falharam. Cada teste é contado uma única vez, mesmo que apresente várias inconsistências.
 
 1. Execute o firmware na placa ou no Renode com `--entradas` apontando para um CSV de medições.
 2. Execute `particle_filter.py` com o mesmo `--entradas`.
 3. Execute `comparar_resultados.py`.
-4. Verifique a indicação `PASSOU` ou `FALHOU` e os motivos de falha para cada teste.
+4. Verifique a indicação `PASSOU` ou `FALHOU` para cada teste.
 
 ## Protocolo de comunicação
 
-O cliente envia comandos ASCII terminados por quebra de linha. Distâncias são transmitidas em micrômetros, ângulos em miligraus e a semente como um inteiro de 32 bits. O sorteio da reamostragem ocorre no próprio firmware.
+O cliente envia comandos ASCII terminados por quebra de linha. Distâncias de entrada, posições medidas e estimativas são transmitidas em micrômetros (escala `10⁶`), ângulos em miligraus e a semente como um inteiro de 32 bits. As posições são exibidas com seis casas decimais no terminal e nos CSVs. O comparador também mostra seis casas nas diferenças; a tolerância padrão entre estimativas é `0 m`. O sorteio da reamostragem ocorre no próprio firmware. Recompile o firmware e gere novamente os resultados ao mudar a escala; o firmware que transmitia estimativas com escala `10⁷` não é compatível com o cliente atual.
 
 ```text
 RESET
