@@ -14,6 +14,7 @@ from medicoes import (
     LIMITES_SENSORES,
     criar_medicao,
     ler_arquivo_medicoes,
+    repetir_medicao,
 )
 
 try:
@@ -223,9 +224,23 @@ def abrir_conexao(porta_serial, endereco_tcp, timeout):
     return serial.Serial(porta, BAUD_RATE, timeout=timeout), porta
 
 
-def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
+def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None, numero_testes=None):
     medicoes = ler_arquivo_medicoes(arquivo_entradas) if arquivo_entradas else None
-    numero_testes = len(medicoes) if medicoes else ler_numero_testes()
+    if numero_testes is None:
+        numero_testes = ler_numero_testes()
+    if numero_testes <= 0:
+        raise ValueError("O numero de testes deve ser positivo.")
+    if medicoes:
+        medicoes = repetir_medicao(medicoes[0], numero_testes)
+    else:
+        print(f"Informe uma unica entrada para os {numero_testes} testes.")
+        deslocamento = ler_float("Deslocamento (m): ")
+        angulo = ler_float("Angulo do movimento (graus): ")
+        sensores = [
+            ler_float(f"Distancia medida ate a {nome} (m): ", 0.0, limite)
+            for nome, limite in zip(NOMES_SENSORES, LIMITES_SENSORES)
+        ]
+        medicoes = repetir_medicao(criar_medicao(1, deslocamento, angulo, sensores), numero_testes)
     ARQUIVO_RESULTADO.parent.mkdir(exist_ok=True)
     conexao, descricao = abrir_conexao(porta_serial, endereco_tcp, timeout)
 
@@ -244,18 +259,7 @@ def executar(porta_serial, endereco_tcp, timeout, arquivo_entradas=None):
 
             for teste in range(1, numero_testes + 1):
                 print(f"\nTeste {teste} de {numero_testes} | Etapa 1 de 1")
-                if medicoes:
-                    medicao = medicoes[teste - 1]
-                else:
-                    deslocamento = ler_float("Deslocamento (m): ")
-                    angulo = ler_float("Angulo do movimento (graus): ")
-                    sensores = [
-                        ler_float(
-                            f"Distancia medida ate a {nome} (m): ", 0.0, limite
-                        )
-                        for nome, limite in zip(NOMES_SENSORES, LIMITES_SENSORES)
-                    ]
-                    medicao = criar_medicao(teste, deslocamento, angulo, sensores)
+                medicao = medicoes[teste - 1]
 
                 semente = secrets.randbits(32)
                 if enviar_comando(conexao, f"RESET,{semente}") != "READY":
@@ -305,6 +309,7 @@ def criar_argumentos():
         action="store_true",
         help="lista as portas seriais e encerra",
     )
+    analisador.add_argument("--testes", type=int, help="numero de repeticoes da unica entrada")
     return analisador.parse_args()
 
 
@@ -322,7 +327,8 @@ def main():
         return 2
 
     try:
-        executar(argumentos.porta, argumentos.tcp, argumentos.timeout, argumentos.entradas)
+        executar(argumentos.porta, argumentos.tcp, argumentos.timeout,
+                 argumentos.entradas, argumentos.testes)
     except (OSError, ValueError, ErroComunicacao) as erro:
         print(f"Erro: {erro}")
         return 1
