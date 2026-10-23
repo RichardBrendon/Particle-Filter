@@ -7,7 +7,6 @@ import re
 import secrets
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 from Python.medicoes import (
@@ -100,25 +99,19 @@ def gerar_medicoes(quantidade):
                             (x, largura - x, y, altura - y))
 
 
-def salvar_cenario(medicoes, quantidade, origem):
+def salvar_cenario(medicoes, quantidade):
     diretorio = RAIZ_PROJETO / "Dados_Teste"
     diretorio.mkdir(exist_ok=True)
-    if origem == "gerado":
-        numero_cenario = 1
-        while True:
-            identificador = str(quantidade) if numero_cenario == 1 else f"{quantidade}-{numero_cenario}"
-            caminho = diretorio / f"cenario_{identificador}_testes.csv"
-            try:
-                # Criacao exclusiva impede sobrescrita, inclusive em execucoes simultaneas.
-                arquivo_cenario = caminho.open("x", newline="", encoding="utf-8")
-                break
-            except FileExistsError:
-                numero_cenario += 1
-    else:
-        arquivo_cenario = tempfile.NamedTemporaryFile(
-            mode="w", newline="", encoding="utf-8", dir=diretorio,
-            prefix=f"cenario_{quantidade}_testes_{origem}_", suffix=".csv", delete=False,
-        )
+    numero_cenario = 1
+    while True:
+        identificador = str(quantidade) if numero_cenario == 1 else f"{quantidade}-{numero_cenario}"
+        caminho = diretorio / f"cenario_{identificador}_testes.csv"
+        try:
+            # Criacao exclusiva impede sobrescrita, inclusive em execucoes simultaneas.
+            arquivo_cenario = caminho.open("x", newline="", encoding="utf-8")
+            break
+        except FileExistsError:
+            numero_cenario += 1
     with arquivo_cenario as arquivo:
         caminho = Path(arquivo.name)
         escritor = csv.writer(arquivo)
@@ -135,7 +128,14 @@ def resolver_cenario(cenario):
             caminho = RAIZ_PROJETO / "Dados_Teste" / "cenario_1_teste.csv"
     else:
         caminho = Path(cenario)
-        if not caminho.is_absolute():
+        if not caminho.suffix:
+            caminho = caminho.with_suffix(".csv")
+        if not caminho.is_absolute() and caminho.parent == Path("."):
+            nome = caminho
+            caminho = RAIZ_PROJETO / "Dados_Teste" / nome
+            if not caminho.is_file() and (RAIZ_PROJETO / nome).is_file():
+                caminho = RAIZ_PROJETO / nome
+        elif not caminho.is_absolute():
             caminho = RAIZ_PROJETO / caminho
     if not caminho.is_file():
         raise ValueError(f"Cenario nao encontrado: {caminho}")
@@ -153,14 +153,17 @@ def executar_python(descricao, arquivo, argumentos=()):
 def main():
     analisador = argparse.ArgumentParser(description=__doc__)
     entrada = analisador.add_mutually_exclusive_group()
-    entrada.add_argument("--cenario", help="numero, variante ou caminho do CSV")
+    entrada.add_argument("--cenario", help="numero, variante, nome em Dados_Teste (com ou sem .csv) ou caminho")
     entrada.add_argument("--manual", action="store_true", help="digitar as entradas uma unica vez")
     entrada.add_argument("--gerar-testes", type=inteiro_positivo, metavar="N",
                          help="gerar e salvar N testes independentes automaticamente")
     analisador.add_argument("--modo", type=str.lower, choices=("renode", "placa"))
     analisador.add_argument("--porta", help="porta da placa, por exemplo COM3")
     analisador.add_argument("--endereco-renode", default="localhost:12345", help="HOST:PORTA do Renode")
-    argumentos = analisador.parse_args()
+    try:
+        argumentos = analisador.parse_args()
+    except SystemExit as erro:
+        return 0 if erro.code == 0 else 1
     try:
         menu = not (argumentos.cenario or argumentos.manual or argumentos.gerar_testes)
         if menu:
@@ -169,7 +172,7 @@ def main():
             if escolha == 1:
                 argumentos.manual = True
             elif escolha == 2:
-                argumentos.cenario = input("Cenario (numero, variante ou caminho): ").strip()
+                argumentos.cenario = input("Cenario (numero, nome com ou sem .csv, ou caminho): ").strip()
             else:
                 argumentos.gerar_testes = ler_quantidade()
         if argumentos.modo is None:
@@ -184,13 +187,13 @@ def main():
             argumentos.porta = input("Porta (ex.: COM3; Enter para detectar): ").strip()
         if argumentos.manual:
             quantidade = ler_quantidade()
-            cenario = salvar_cenario(medicoes_manuais(quantidade), quantidade, "manual")
+            cenario = salvar_cenario(medicoes_manuais(quantidade), quantidade)
         elif argumentos.gerar_testes:
             quantidade = argumentos.gerar_testes
-            cenario = salvar_cenario(gerar_medicoes(quantidade), quantidade, "gerado")
+            cenario = salvar_cenario(gerar_medicoes(quantidade), quantidade)
         else:
             cenario = resolver_cenario(argumentos.cenario)
-        print(f"Cenario: {cenario}\nModo: {argumentos.modo}", flush=True)
+        print(f"Cenario: {cenario.name}\nModo: {argumentos.modo}", flush=True)
         cliente = ["--entradas", str(cenario)]
         if argumentos.modo == "renode":
             cliente += ["--tcp", argumentos.endereco_renode]
@@ -199,15 +202,14 @@ def main():
         executar_python("Executando o filtro C pela UART", "comunicacao_uart.py", cliente)
         executar_python("Executando a referencia Python", "particle_filter.py", ["--entradas", str(cenario)])
         executar_python("Comparando os resultados", "comparar_resultados.py")
-    except subprocess.CalledProcessError as erro:
-        print(f"Teste interrompido: programa encerrou com codigo {erro.returncode}.", file=sys.stderr)
-        return erro.returncode
+    except subprocess.CalledProcessError:
+        return 1
     except (OSError, ValueError, EOFError) as erro:
         print(f"Erro: {erro}", file=sys.stderr)
-        return 2
+        return 1
     except KeyboardInterrupt:
         print("\nOperacao cancelada.", file=sys.stderr)
-        return 130
+        return 1
     return 0
 
 
