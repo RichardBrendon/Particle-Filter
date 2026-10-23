@@ -1,0 +1,16 @@
+"""Executa somente o filtro C, com as mesmas opcoes do executor completo."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from Scripts.executar_teste import main as executar
+
+
+def main():
+    return executar(apenas_c=True)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
