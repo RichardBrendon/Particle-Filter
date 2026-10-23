@@ -55,16 +55,18 @@ A **diferença máxima** resume o comportamento do cenário e é apenas informat
 
 ## Como reproduzir
 
+Para executar as partes separadamente, use `py .\Scripts\executar_algoritmo_c.py`, depois `py .\Scripts\executar_algoritmo_python.py` e, por fim, `py .\Scripts\executar_comparacao.py` (ou substitua `py` por `python` ou `python3`). O primeiro oferece a seleção de entradas e destino; o segundo reutiliza por padrão as entradas e sementes do resultado C; o terceiro apenas compara os CSVs existentes. O executor completo continua disponível em `Scripts/executar_teste.py`.
+
 Ao final da comparação, são exibidos os totais de testes que passaram e falharam. Cada teste conta uma única vez; resultados ausentes também entram no total de falhas.
 
-Execute `py .\executar_teste.py` (ou use `python` ou `python3`) para abrir o menu: entrada manual, CSV existente ou geração automática. Escolha também Renode ou placa. As entradas manuais são solicitadas uma única vez. Entradas manuais e geradas são salvas em um CSV exclusivo de `Dados_Teste/`, utilizado pelos dois programas. O gerador usa sensores ideais coerentes com o mapa de 10 × 8 m, deslocamentos de 0 a 2 m e origens e destinos dentro do mapa. As sementes de cada teste ficam no resultado C para reprodução pela referência.
+Execute `py .\Scripts\executar_teste.py` (ou use `python` ou `python3`) para abrir o menu: entrada manual, CSV existente ou geração automática. Escolha também Renode ou placa. As entradas manuais são solicitadas uma única vez. Entradas manuais e geradas são salvas em um CSV exclusivo de `Dados_Teste/`, utilizado pelos dois programas. O gerador usa sensores ideais coerentes com o mapa de 10 × 8 m, deslocamentos de 0 a 2 m e origens e destinos dentro do mapa. As sementes de cada teste ficam no resultado C para reprodução pela referência.
 
-Para gerar entradas sem o menu, use `py .\executar_teste.py --gerar-testes 20`. Para entrada manual direta, use `--manual`. Para um CSV já existente, mantenha o fluxo abaixo:
+Para gerar entradas sem o menu, use `py .\Scripts\executar_teste.py --gerar-testes 20`. Para entrada manual direta, use `--manual`. Para um CSV já existente, mantenha o fluxo abaixo:
 
 Os cenários manuais e os gerados automaticamente usam `cenario_N_testes.csv`, compartilhando a mesma sequência de nomes. Quando o nome já existe, são numerados como `cenario_N-2_testes.csv`, `cenario_N-3_testes.csv` e assim por diante. O executor preserva os arquivos existentes; use `--cenario N-2`, por exemplo, para selecionar a segunda variante.
 
 1. Escolha um cenário, por exemplo `Dados_Teste/cenario_20_testes.csv`, com 20 testes independentes de uma etapa.
-2. Com o firmware ativo na placa ou no Renode, execute `py .\executar_teste.py --cenario 20 --modo renode` na raiz do projeto (ou use `python` ou `python3`; para a placa, use `--modo placa --porta COM3`, conforme a porta do PC).
+2. Com o firmware ativo na placa ou no Renode, execute `py .\Scripts\executar_teste.py --cenario 20 --modo renode` na raiz do projeto (ou use `python` ou `python3`; para a placa, use `--modo placa --porta COM3`, conforme a porta do PC).
 3. O script executa `comunicacao_uart.py`, `particle_filter.py` e `comparar_resultados.py` em sequência com o mesmo cenário.
 
 Os arquivos em `Resultados/` são sobrescritos a cada execução. Portanto, gere **ambos** novamente antes de comparar outro cenário. Para comandos completos da placa e do Renode, consulte o [README](../README.md).
