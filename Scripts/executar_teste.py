@@ -193,7 +193,7 @@ def main(apenas_c=False):
         menu = not (argumentos.cenario or argumentos.manual or argumentos.gerar_testes)
         if menu:
             escolha = escolher_opcao("Entrada dos testes:", (
-                "Manual", "Executar CSV existente", "Gerar testes automaticamente"))
+                "Manual", "Executar CSV existente", "Gerar dados automaticamente"))
             if escolha == 1:
                 argumentos.manual = True
             elif escolha == 2:
