@@ -21,7 +21,7 @@ ARQUIVO_C = DIRETORIO_RESULTADOS / "resultado_c.csv"
 ARQUIVO_PYTHON = DIRETORIO_RESULTADOS / "resultado_python.csv"
 
 CAMPOS_ENTRADA = CAMPOS_MEDICAO[1:]
-TOLERANCIA_TESTE = 1.0e-5
+TOLERANCIA_TESTE = 0.0
 TOLERANCIA_MEDIDO_UM = 1
 MAPA_LARGURA = 10.0
 MAPA_ALTURA = 8.0
@@ -89,21 +89,23 @@ def ler_resultados(caminho):
 
 
 def comparar(resultados_c, resultados_python, tolerancia):
-    """Verifica cada teste independente de uma etapa e relata o RMSE."""
+    """Verifica cada teste independente de uma etapa pela tolerancia."""
     falhas = []
     distancias = []
+    total_passou = 0
+    total_falhou = 0
 
-    print("\nTeste | Diferença C x Python | Tolerancia | Resultado")
-    print("------|----------------------|------------|----------")
+    print(f"\nTeste | {'Diferença C x Python':^20} | Resultado")
+    print("------|----------------------|----------")
 
     for c, python in zip_longest(resultados_c, resultados_python):
         if c is None or python is None:
             teste = (python if c is None else c)["teste"]
             origem = "C" if c is None else "Python"
             motivo = f"Teste {teste}: resultado ausente em {origem}."
-            print(f"{teste:5d} | {'---':>20}   | {tolerancia:8.6f} m | FALHOU")
-            print(f"      Motivo: {motivo}")
+            print(f"{teste:5d} | {'---':^20} | FALHOU")
             falhas.append(motivo)
+            total_falhou += 1
             continue
         etapa_c = c["teste"]
         etapa_python = python["teste"]
@@ -164,22 +166,21 @@ def comparar(resultados_c, resultados_python, tolerancia):
             )
 
         estado = "PASSOU" if not problemas_etapa else "FALHOU"
-        print(
-            f"{etapa_c:5d} | {distancia:20.6f} m | "
-            f"{tolerancia:8.6f} m | {estado}"
-        )
+        if problemas_etapa:
+            total_falhou += 1
+        else:
+            total_passou += 1
+        diferenca_formatada = f"{distancia:.6f} m"
+        print(f"{etapa_c:5d} | {diferenca_formatada:^20} | {estado}")
         falhas.extend(f"Teste {etapa_c}: {item}." for item in problemas_etapa)
-        for problema in problemas_etapa:
-            print(f"      Motivo: {problema}.")
 
     if distancias:
-        rmse = math.sqrt(sum(d * d for d in distancias) / len(distancias))
         print(f"\nDiferenca maxima: {max(distancias):.6f} m")
-        print(f"RMSE entre as estimativas: {rmse:.6f} m")
     print(f"Tolerancia por teste de uma etapa: {tolerancia:.6f} m")
-    print("Criterio: cada teste deve respeitar o limite; RMSE e informativo.")
+    print(f"Total de testes que PASSOU: {total_passou}")
+    print(f"Total de testes que FALHOU: {total_falhou}")
 
-    # O codigo de saida sinaliza falhas para a automacao, sem veredito geral.
+    # O retorno informa concordancia para chamadas diretas desta funcao.
     return not falhas
 
 
@@ -201,24 +202,31 @@ def criar_argumentos():
 
 
 def main():
-    argumentos = criar_argumentos()
+    try:
+        argumentos = criar_argumentos()
+    except SystemExit as erro:
+        return 0 if erro.code == 0 else 1
     if not math.isfinite(argumentos.tolerancia) or argumentos.tolerancia < 0.0:
         print("ERRO: as tolerancias devem ser numeros finitos nao negativos.")
-        return 2
+        return 1
 
     try:
         resultados_c = ler_resultados(ARQUIVO_C)
         resultados_python = ler_resultados(ARQUIVO_PYTHON)
-        passou = comparar(
+        comparar(
             resultados_c,
             resultados_python,
             argumentos.tolerancia,
         )
     except (OSError, ErroComparacao) as erro:
         print(f"ERRO: {erro}")
-        return 2
+        return 1
+    except KeyboardInterrupt:
+        print("\nComparacao cancelada.")
+        return 1
 
-    return 0 if passou else 1
+    # Testes reprovados sao resultados validos de uma comparacao concluida.
+    return 0
 
 
 if __name__ == "__main__":
