@@ -203,9 +203,14 @@ def prever_particulas(particulas, deslocamento, angulo_graus):
 
 def main():
     analisador = argparse.ArgumentParser(description="Referencia Python do filtro de particulas.")
-    analisador.add_argument(
+    entrada = analisador.add_mutually_exclusive_group()
+    entrada.add_argument(
         "--entradas", type=Path,
         help="CSV com as mesmas medicoes enviadas ao firmware",
+    )
+    entrada.add_argument(
+        "--repetir-c", action="store_true",
+        help="reutilizar entradas e sementes do resultado C, sem digitacao",
     )
     analisador.add_argument(
         "--resultados-c", type=Path,
@@ -216,9 +221,12 @@ def main():
     print("Filtro de Particulas em Python")
     print(f"Mapa: {MAPA_LARGURA:.1f} m x {MAPA_ALTURA:.1f} m")
     print(f"Particulas: {NUM_PARTICULAS} | Sensores: {NUM_SENSORES}")
-    medicoes = ler_arquivo_medicoes(argumentos.entradas) if argumentos.entradas else None
-    numero_testes = len(medicoes) if medicoes else ler_numero_testes()
     testes_registrados = ler_testes_registrados(argumentos.resultados_c)
+    if argumentos.repetir_c:
+        medicoes = [medicao for medicao, _ in testes_registrados]
+    else:
+        medicoes = ler_arquivo_medicoes(argumentos.entradas) if argumentos.entradas else None
+    numero_testes = len(medicoes) if medicoes else ler_numero_testes()
     if len(testes_registrados) != numero_testes:
         raise ValueError("Quantidade de testes diferente do resultado C. Execute C primeiro.")
     if medicoes and medicoes != [medicao for medicao, _ in testes_registrados]:
