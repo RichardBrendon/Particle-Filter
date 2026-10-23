@@ -32,8 +32,12 @@ Particle Filter/
 │   └── requirements.txt
 ├── Renode/                    # Plataforma e scripts de emulação
 ├── Resultados/                # CSVs gerados (não versionados)
-├── executar_teste.py          # Executa C, Python e comparação em sequência
-├── listar_portas.py           # Lista as portas seriais disponíveis
+├── Scripts/                   # Automação dos testes e utilitários
+│   ├── executar_teste.py       # Executa C, Python e comparação em sequência
+│   ├── executar_algoritmo_c.py # Executa somente o filtro C
+│   ├── executar_algoritmo_python.py # Executa somente a referência Python
+│   ├── executar_comparacao.py  # Compara os resultados existentes
+│   └── listar_portas.py        # Lista as portas seriais disponíveis
 ├── Particle Filter.ioc         # Configuração do STM32CubeMX
 └── STM32F030R8TX_FLASH.ld     # Script de linker
 ```
@@ -105,19 +109,19 @@ O firmware gerado fica em `Debug/Particle Filter.elf`.
 Para escolher as entradas por um menu, execute:
 
 ```powershell
-py .\executar_teste.py
+py .\Scripts\executar_teste.py
 ```
 
 ou
 
 ```powershell
-python .\executar_teste.py
+python .\Scripts\executar_teste.py
 ```
 
 ou
 
 ```powershell
-python3 .\executar_teste.py
+python3 .\Scripts\executar_teste.py
 ```
 
 O menu oferece entrada manual, execução de um CSV existente e geração automática de testes. Também permite escolher Renode ou placa. No modo manual, informe a quantidade de testes e as medições de cada um uma única vez; o executor salva um cenário e o utiliza no C e na referência Python. Na geração automática, informe apenas a quantidade de testes.
@@ -133,19 +137,19 @@ A geração automática usa sensores ideais no mapa de 10 × 8 m, com esquerda +
 Para gerar e executar 20 testes sem passar pelo menu:
 
 ```powershell
-py .\executar_teste.py --gerar-testes 20
+py .\Scripts\executar_teste.py --gerar-testes 20
 ```
 
 ou
 
 ```powershell
-python .\executar_teste.py --gerar-testes 20
+python .\Scripts\executar_teste.py --gerar-testes 20
 ```
 
 ou
 
 ```powershell
-python3 .\executar_teste.py --gerar-testes 20
+python3 .\Scripts\executar_teste.py --gerar-testes 20
 ```
 
 Use `--manual` para ir diretamente à digitação das entradas. `--manual`, `--gerar-testes N` e `--cenario` são opções alternativas; escolha apenas uma por execução. Sem essas opções, o executor abre o menu. O firmware precisa estar compilado e ativo no Renode ou na placa antes do processamento.
@@ -153,65 +157,97 @@ Use `--manual` para ir diretamente à digitação das entradas. `--manual`, `--g
 Depois de compilar o firmware e iniciar o Renode em outro terminal (`py .\Renode\iniciar.py`, ou com `python` ou `python3`), execute na raiz do projeto:
 
 ```powershell
-py .\executar_teste.py --cenario 20 --modo renode
+py .\Scripts\executar_teste.py --cenario 20 --modo renode
 ```
 
 ou, se o comando disponível for `python` ou `python3`:
 
 ```powershell
-python .\executar_teste.py --cenario 20 --modo renode
+python .\Scripts\executar_teste.py --cenario 20 --modo renode
 ```
 
 ou
 
 ```powershell
-python3 .\executar_teste.py --cenario 20 --modo renode
+python3 .\Scripts\executar_teste.py --cenario 20 --modo renode
 ```
 
 Para usar a placa já gravada, substitua a porta conforme o PC:
 
 ```powershell
-py .\executar_teste.py --cenario 20 --modo placa --porta COM3
+py .\Scripts\executar_teste.py --cenario 20 --modo placa --porta COM3
 ```
 
 ou
 
 ```powershell
-python .\executar_teste.py --cenario 20 --modo placa --porta COM3
+python .\Scripts\executar_teste.py --cenario 20 --modo placa --porta COM3
 ```
 
 ou
 
 ```powershell
-python3 .\executar_teste.py --cenario 20 --modo placa --porta COM3
+python3 .\Scripts\executar_teste.py --cenario 20 --modo placa --porta COM3
 ```
 
 `--cenario` e a opção de CSV existente no menu aceitam um número como `250`, uma variante como `20-2`, o nome `cenario_250_testes` ou `cenario_250_testes.csv`, ou o caminho de um CSV. Nomes sem diretório são procurados em `Dados_Teste/`, e a extensão `.csv` é acrescentada quando omitida. Se o nome não existir nessa pasta, o executor também verifica a raiz do projeto. Caminhos relativos com diretório são resolvidos a partir da raiz do projeto. Cada linha representa um teste independente de uma etapa. Nos comandos diretos, `--modo renode` é o padrão; no menu, o executor pergunta o destino. `--modo placa` usa a detecção automática de porta se `--porta` for omitido. Para alterar o endereço TCP, use `--endereco-renode HOST:PORTA` (padrão: `localhost:12345`). O script usa `sys.executable` para executar o cliente UART, a referência Python e o comparador **nessa ordem**, com o mesmo interpretador que o iniciou, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
+
+## Executar cada parte separadamente
+
+Para executar somente C, depois somente Python e por fim a comparação:
+
+```powershell
+py .\Scripts\executar_algoritmo_c.py
+py .\Scripts\executar_algoritmo_python.py
+py .\Scripts\executar_comparacao.py
+```
+
+ou
+
+```powershell
+python .\Scripts\executar_algoritmo_c.py
+python .\Scripts\executar_algoritmo_python.py
+python .\Scripts\executar_comparacao.py
+```
+
+ou
+
+```powershell
+python3 .\Scripts\executar_algoritmo_c.py
+python3 .\Scripts\executar_algoritmo_python.py
+python3 .\Scripts\executar_comparacao.py
+```
+
+O script C oferece o mesmo menu e os mesmos argumentos de `executar_teste.py`, incluindo `--cenario 20`, `--manual`, `--gerar-testes N`, `--modo placa --porta COM3` e `--endereco-renode HOST:PORTA`. Ele executa somente o cliente UART e grava `resultado_c.csv`; o firmware precisa estar ativo na placa ou no Renode.
+
+Por padrão, o script Python repete as entradas e sementes de `Resultados/resultado_c.csv`, sem pedir as medições novamente. Ele não executa o C nem a comparação. É necessário ter um resultado C válido anterior. Opcionalmente, use `--cenario nome.csv` para conferir e executar o cenário usado no C, `--manual` para digitar as mesmas entradas, ou `--resultados-c caminho.csv` para selecionar outro registro C. A referência recebe `--repetir-c` quando o script é iniciado sem `--cenario` ou `--manual`.
+
+O script de comparação lê os dois CSVs já existentes, sem executar nenhum filtro. Ele aceita os parâmetros do comparador, como `--tolerancia 0`. Os três scripts usam o mesmo interpretador Python que os iniciou e retornam `0` quando concluem ou `1` em caso de erro.
 
 ## Executar na placa
 
 Para listar as portas disponíveis pelo terminal, execute na raiz do projeto:
 
 ```powershell
-py .\listar_portas.py
+py .\Scripts\listar_portas.py
 ```
 
 ou
 
 ```powershell
-python .\listar_portas.py
+python .\Scripts\listar_portas.py
 ```
 
 ou
 
 ```powershell
-python3 .\listar_portas.py
+python3 .\Scripts\listar_portas.py
 ```
 
 O script chama `comunicacao_uart.py --listar-portas` com o mesmo interpretador Python que o iniciou e mostra a porta e a descrição, como `COM3: STMicroelectronics STLink Virtual COM Port`, quando ela estiver disponível. Ele não abre a porta nem inicia o filtro. As dependências de `Python/requirements.txt` precisam estar instaladas nesse interpretador.
 
 1. Compile o projeto e grave o firmware na NUCLEO-F030R8 pelo STM32CubeIDE.
-2. Identifique a porta COM do ST-LINK com `listar_portas.py` ou no Gerenciador de Dispositivos do Windows.
+2. Identifique a porta COM do ST-LINK com `Scripts/listar_portas.py` ou no Gerenciador de Dispositivos do Windows.
 3. Feche outros monitores seriais que estejam usando a mesma porta.
 4. Na raiz do projeto, execute com o cenário compartilhado:
 
