@@ -124,15 +124,15 @@ ou
 python3 .\Scripts\executar_teste.py
 ```
 
-O menu oferece entrada manual, execução de um CSV existente e geração automática de testes. Também permite escolher Renode ou placa. No modo manual, informe a quantidade de testes e as medições de cada um uma única vez; o executor salva um cenário e o utiliza no C e na referência Python. Na geração automática, informe apenas a quantidade de testes.
+O menu oferece entrada manual, execução de um CSV existente e geração automática de testes. Também permite escolher Renode ou placa. No modo manual, informe a quantidade de testes e uma única medição (deslocamento, ângulo e quatro sensores); o executor salva essa entrada em um cenário e a repete em todos os testes no C e na referência Python. Na geração automática, informe apenas a quantidade de testes: uma única medição é sorteada. Cada CSV de cenário contém o cabeçalho e somente uma linha de dados. A quantidade de repetições é escolhida separadamente. Cada teste reinicializa o filtro com uma nova semente, compartilhada entre C e Python naquele teste.
 
 Os cenários manuais e gerados são salvos com nomes exclusivos em `Dados_Teste/`, e apenas o nome do arquivo é mostrado antes da execução. Assim, é possível repetir as mesmas entradas usando `--cenario nome.csv`. As sementes do filtro continuam registradas em `resultado_c.csv`; a referência recupera essas sementes. Ao executar novamente o cliente UART, novas sementes são sorteadas, mesmo se o CSV de entrada for o mesmo.
 
-O repositório inclui apenas `Dados_Teste/cenario_20_testes.csv` como cenário de exemplo. Os demais arquivos dessa pasta são locais e ignorados pelo Git.
+O repositório inclui apenas `Dados_Teste/cenario_exemplo.csv` como cenário de exemplo. Os demais arquivos dessa pasta são locais e ignorados pelo Git.
 
-Tanto na entrada manual quanto na geração automática, o nome segue `cenario_N_testes.csv`. Se já existir, o executor usa `cenario_N-2_testes.csv`, depois `cenario_N-3_testes.csv` e assim por diante, sem sobrescrever os arquivos existentes. A sequência é compartilhada entre os dois modos. Por exemplo, para 20 testes: `cenario_20_testes.csv`, `cenario_20-2_testes.csv`, `cenario_20-3_testes.csv`. Esses cenários podem ser selecionados com `--cenario 20`, `--cenario 20-2` e `--cenario 20-3`, respectivamente. Para um teste, o nome gerado é `cenario_1_testes.csv`.
+Tanto na entrada manual quanto na geração automática, os arquivos seguem a sequência `cenario_1.csv`, `cenario_2.csv`, `cenario_3.csv` etc., sem sobrescrever cenários existentes. O número identifica o cenário, não a quantidade de testes. Use `--cenario 1` ou `--cenario cenario_1.csv` para selecionar o primeiro cenário.
 
-A geração automática usa sensores ideais no mapa de 10 × 8 m, com esquerda + direita = 10 m e inferior + superior = 8 m. Sorteia deslocamentos entre 0 e 2 m e ângulos entre 0° e 359,999°, escolhendo posições finais compatíveis com uma origem dentro do mapa. Cada linha é independente e não há ruído adicionado às leituras geradas. Para casos específicos, use a entrada manual ou um CSV conhecido.
+A geração automática usa sensores ideais no mapa de 10 × 8 m, com esquerda + direita = 10 m e inferior + superior = 8 m. Sorteia um deslocamento entre 0 e 2 m e um ângulo entre 0° e 359,999°, escolhendo uma posição final compatível com uma origem dentro do mapa. Essa entrada é salva uma vez e repetida em memória durante os testes; os resultados continuam tendo uma linha por teste. Não há ruído adicionado às leituras geradas. Para uma entrada específica, use o modo manual ou um CSV conhecido.
 
 Para gerar e executar 20 testes sem passar pelo menu:
 
@@ -152,45 +152,45 @@ ou
 python3 .\Scripts\executar_teste.py --gerar-testes 20
 ```
 
-Use `--manual` para ir diretamente à digitação das entradas. `--manual`, `--gerar-testes N` e `--cenario` são opções alternativas; escolha apenas uma por execução. Sem essas opções, o executor abre o menu. O firmware precisa estar compilado e ativo no Renode ou na placa antes do processamento.
+Use `--manual` para digitar uma única entrada. `--manual`, `--gerar-testes N` e `--cenario` são alternativas. `--testes N` define quantas vezes repetir uma entrada manual ou de CSV existente. Por exemplo, `py .\Scripts\executar_teste.py --cenario cenario_exemplo --testes 1000` repete a entrada 1.000 vezes. Sem `--testes`, o executor pergunta a quantidade; ela nunca é deduzida do nome do arquivo. Sem opções de entrada, o executor abre o menu. O firmware precisa estar ativo no Renode ou na placa.
 
 Depois de compilar o firmware e iniciar o Renode em outro terminal (`py .\Renode\iniciar.py`, ou com `python` ou `python3`), execute na raiz do projeto:
 
 ```powershell
-py .\Scripts\executar_teste.py --cenario 20 --modo renode
+py .\Scripts\executar_teste.py --cenario cenario_exemplo --testes 20 --modo renode
 ```
 
 ou, se o comando disponível for `python` ou `python3`:
 
 ```powershell
-python .\Scripts\executar_teste.py --cenario 20 --modo renode
+python .\Scripts\executar_teste.py --cenario cenario_exemplo --testes 20 --modo renode
 ```
 
 ou
 
 ```powershell
-python3 .\Scripts\executar_teste.py --cenario 20 --modo renode
+python3 .\Scripts\executar_teste.py --cenario cenario_exemplo --testes 20 --modo renode
 ```
 
 Para usar a placa já gravada, substitua a porta conforme o PC:
 
 ```powershell
-py .\Scripts\executar_teste.py --cenario 20 --modo placa --porta COM3
+py .\Scripts\executar_teste.py --cenario cenario_exemplo --testes 20 --modo placa --porta COM3
 ```
 
 ou
 
 ```powershell
-python .\Scripts\executar_teste.py --cenario 20 --modo placa --porta COM3
+python .\Scripts\executar_teste.py --cenario cenario_exemplo --testes 20 --modo placa --porta COM3
 ```
 
 ou
 
 ```powershell
-python3 .\Scripts\executar_teste.py --cenario 20 --modo placa --porta COM3
+python3 .\Scripts\executar_teste.py --cenario cenario_exemplo --testes 20 --modo placa --porta COM3
 ```
 
-`--cenario` e a opção de CSV existente no menu aceitam um número como `250`, uma variante como `20-2`, o nome `cenario_250_testes` ou `cenario_250_testes.csv`, ou o caminho de um CSV. Nomes sem diretório são procurados em `Dados_Teste/`, e a extensão `.csv` é acrescentada quando omitida. Se o nome não existir nessa pasta, o executor também verifica a raiz do projeto. Caminhos relativos com diretório são resolvidos a partir da raiz do projeto. Cada linha representa um teste independente de uma etapa. Nos comandos diretos, `--modo renode` é o padrão; no menu, o executor pergunta o destino. `--modo placa` usa a detecção automática de porta se `--porta` for omitido. Para alterar o endereço TCP, use `--endereco-renode HOST:PORTA` (padrão: `localhost:12345`). O script usa `sys.executable` para executar o cliente UART, a referência Python e o comparador **nessa ordem**, com o mesmo interpretador que o iniciou, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
+`--cenario` e a opção de CSV existente no menu aceitam um identificador como `1` (para `cenario_1.csv`), nomes como `cenario_1`, `cenario_1.csv` ou `cenario_exemplo`, ou o caminho de um CSV. Nomes sem diretório são procurados em `Dados_Teste/`, e a extensão `.csv` é acrescentada quando omitida. Se o nome não existir nessa pasta, o executor também verifica a raiz do projeto. Caminhos relativos com diretório são resolvidos a partir da raiz do projeto. O cenário possui uma única entrada, reutilizada em todos os testes independentes de uma etapa. Nos comandos diretos, `--modo renode` é o padrão; no menu, o executor pergunta o destino. `--modo placa` usa a detecção automática de porta se `--porta` for omitido. Para alterar o endereço TCP, use `--endereco-renode HOST:PORTA` (padrão: `localhost:12345`). O script usa `sys.executable` para executar o cliente UART, a referência Python e o comparador **nessa ordem**, com o mesmo interpretador que o iniciou, parando se algum falhar. O script não inicia o Renode nem grava o firmware na placa. Os CSVs em `Resultados/` são sobrescritos.
 
 ## Executar cada parte separadamente
 
@@ -218,9 +218,9 @@ python3 .\Scripts\executar_algoritmo_python.py
 python3 .\Scripts\executar_comparacao.py
 ```
 
-O script C oferece o mesmo menu e os mesmos argumentos de `executar_teste.py`, incluindo `--cenario 20`, `--manual`, `--gerar-testes N`, `--modo placa --porta COM3` e `--endereco-renode HOST:PORTA`. Ele executa somente o cliente UART e grava `resultado_c.csv`; o firmware precisa estar ativo na placa ou no Renode.
+O script C oferece o mesmo menu e os mesmos argumentos de `executar_teste.py`, incluindo `--cenario cenario_exemplo --testes 20`, `--testes N`, `--manual`, `--gerar-testes N`, `--modo placa --porta COM3` e `--endereco-renode HOST:PORTA`. Ele executa somente o cliente UART e grava `resultado_c.csv`; o firmware precisa estar ativo na placa ou no Renode.
 
-Por padrão, o script Python repete as entradas e sementes de `Resultados/resultado_c.csv`, sem pedir as medições novamente. Ele não executa o C nem a comparação. É necessário ter um resultado C válido anterior. Opcionalmente, use `--cenario nome.csv` para conferir e executar o cenário usado no C, `--manual` para digitar as mesmas entradas, ou `--resultados-c caminho.csv` para selecionar outro registro C. A referência recebe `--repetir-c` quando o script é iniciado sem `--cenario` ou `--manual`.
+Por padrão, o script Python repete as entradas e sementes de `Resultados/resultado_c.csv`, sem pedir a medição novamente. Ele não executa o C nem a comparação. É necessário ter um resultado C válido anterior. Opcionalmente, use `--cenario nome.csv` para repetir a entrada do cenário pela quantidade registrada no C, `--testes N` para conferir explicitamente essa quantidade, `--manual` para digitar a mesma entrada uma vez, ou `--resultados-c caminho.csv` para selecionar outro registro C. A referência recebe `--repetir-c` quando o script é iniciado sem `--cenario` ou `--manual`.
 
 O script de comparação lê os dois CSVs já existentes, sem executar nenhum filtro. Ele aceita os parâmetros do comparador, como `--tolerancia 0`. Os três scripts usam o mesmo interpretador Python que os iniciou e retornam `0` quando concluem ou `1` em caso de erro.
 
@@ -252,22 +252,22 @@ O script chama `comunicacao_uart.py --listar-portas` com o mesmo interpretador P
 4. Na raiz do projeto, execute com o cenário compartilhado:
 
 ```powershell
-py .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_20_testes.csv
+py .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_exemplo.csv --testes 20
 ```
 
 ou
 
 ```powershell
-python .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_20_testes.csv
+python .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_exemplo.csv --testes 20
 ```
 
 ou
 
 ```powershell
-python3 .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_20_testes.csv
+python3 .\Python\comunicacao_uart.py --porta COM3 --entradas .\Dados_Teste\cenario_exemplo.csv --testes 20
 ```
 
-Substitua `COM3` pela porta correspondente à placa. Para informar as medições manualmente, omita `--entradas`; o programa solicitará o número de testes e, em cada teste de uma etapa:
+Substitua `COM3` pela porta correspondente à placa. Para informar as medições manualmente, omita `--entradas`; o programa solicitará o número de testes e uma única entrada, utilizada em todos eles:
 
 - deslocamento, em metros;
 - ângulo do movimento, em graus;
@@ -318,19 +318,19 @@ O iniciador usa `C:\Program Files\Renode\renode.exe` por padrão. Se necessário
 Mantenha o Renode aberto. Em outro terminal, execute o cliente por TCP:
 
 ```powershell
-py .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_20_testes.csv
+py .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_exemplo.csv --testes 20
 ```
 
 ou
 
 ```powershell
-python .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_20_testes.csv
+python .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_exemplo.csv --testes 20
 ```
 
 ou
 
 ```powershell
-python3 .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_20_testes.csv
+python3 .\Python\comunicacao_uart.py --tcp localhost:12345 --entradas .\Dados_Teste\cenario_exemplo.csv --testes 20
 ```
 
 O cliente usa o mesmo fluxo de entrada e gera o mesmo arquivo `Resultados/resultado_c.csv` usado no teste com a placa.
@@ -342,24 +342,24 @@ Antes do primeiro teste, o cliente solicita ao firmware a configuração e mostr
 Na raiz do projeto, execute:
 
 ```powershell
-py .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_20_testes.csv
+py .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_exemplo.csv
 ```
 
 ou
 
 ```powershell
-python .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_20_testes.csv
+python .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_exemplo.csv
 ```
 
 ou
 
 ```powershell
-python3 .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_20_testes.csv
+python3 .\Python\particle_filter.py --entradas .\Dados_Teste\cenario_exemplo.csv
 ```
 
-Execute primeiro o cliente UART e use o mesmo arquivo indicado a ele. A referência lê as sementes em `Resultados/resultado_c.csv` e confere se as entradas correspondem. Para digitar as medições manualmente, omita `--entradas`, informe o número de testes e depois a mesma sequência de medições utilizada no firmware. O resultado será salvo em `Resultados/resultado_python.csv`. Para usar outro resultado C como registro das sementes, informe `--resultados-c caminho.csv`.
+Execute primeiro o cliente UART e use o mesmo arquivo indicado a ele. A referência lê as sementes em `Resultados/resultado_c.csv` e confere se as entradas correspondem. Para digitar a medição manualmente, omita `--entradas`, informe o número de testes e depois a única entrada utilizada em todos os testes do firmware. O resultado será salvo em `Resultados/resultado_python.csv`. Para usar outro resultado C como registro das sementes, informe `--resultados-c caminho.csv`.
 
-O CSV de entrada contém `teste,deslocamento,angulo,sensor_esquerda,sensor_direita,sensor_inferior,sensor_superior`. A coluna `teste` identifica o teste e deve começar em 1 e ser consecutiva; internamente, cada teste executa somente a etapa 1. Os CSVs de resultado também usam `teste` como primeira coluna. As distâncias estão em metros e o ângulo em graus. As entradas são arredondadas para a resolução do protocolo UART: 1 micrômetro e 1 miligrau. O firmware gera internamente o sorteio da reamostragem.
+O CSV de entrada contém `teste,deslocamento,angulo,sensor_esquerda,sensor_direita,sensor_inferior,sensor_superior`, com apenas uma linha de dados e `teste=1`. A quantidade de testes não é determinada pela quantidade de linhas: use `--testes N`, o menu ou o padrão numérico do nome do cenário no executor C. Nos CSVs de resultado, `teste` identifica cada repetição e vai de 1 a N; internamente, cada teste executa somente a etapa 1. As distâncias estão em metros e o ângulo em graus. As entradas são arredondadas para a resolução do protocolo UART: 1 micrômetro e 1 miligrau. O firmware gera internamente o sorteio da reamostragem.
 
 ## Comparar os resultados
 
@@ -393,7 +393,7 @@ O comparador verifica:
 
 O critério padrão de concordância entre C e Python exige diferença `0 m` **em cada teste de uma etapa**, sempre com as mesmas entradas e a mesma semente. As coordenadas `(x_estimado, y_estimado)` gravadas nos CSVs devem coincidir exatamente. Isso verifica igualdade na resolução dos arquivos, não igualdade dos valores internos antes da conversão. A diferença máxima é apresentada como diagnóstico. Qualquer diferença não nula entre as estimativas faz o teste falhar, inclusive diferenças pequenas de arredondamento entre bibliotecas matemáticas. Esse critério não afirma precisão absoluta de localização.
 
-`cenario_20_testes.csv` contém 20 testes independentes com movimentos e posições variados, incluindo posições no centro e próximas às paredes. Cada teste reinicializa o filtro e executa apenas a etapa 1. Execute C e Python com o **mesmo** arquivo antes de comparar: os resultados anteriores são sobrescritos em cada execução. Se um teste falhar, investigue a entrada e a causa da divergência antes de rever o critério.
+`cenario_exemplo.csv` contém uma única entrada de exemplo, reutilizável em qualquer quantidade de testes independentes. Informe a quantidade no menu ou com `--testes N`. Cada teste reinicializa o filtro e executa apenas a etapa 1. Execute C e Python com o **mesmo** arquivo e a mesma quantidade de repetições antes de comparar: os resultados anteriores são sobrescritos em cada execução. Se um teste falhar, investigue a entrada e a causa da divergência antes de rever o critério.
 
 Em cada teste, o cliente UART gera uma semente aleatória de 32 bits usando `secrets.randbits(32)`, envia `RESET,semente` ao firmware e registra a semente na coluna `semente` de `resultado_c.csv`. A referência recupera essa semente para reproduzir a inicialização e o ruído do movimento. Não é necessário gerar outro CSV nem informar a semente manualmente. Os resultados antigos devem ser gerados novamente, pois o cabeçalho mudou.
 
