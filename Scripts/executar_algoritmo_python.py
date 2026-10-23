@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from Scripts.executar_teste import RAIZ_PROJETO, executar_python, resolver_cenario
+from Scripts.executar_teste import RAIZ_PROJETO, executar_python, resolver_cenario, inteiro_positivo
 
 
 def main():
@@ -17,6 +17,7 @@ def main():
     entrada.add_argument("--manual", action="store_true", help="digitar as mesmas entradas do C")
     analisador.add_argument("--resultados-c", type=Path,
                             help="registro C com entradas e sementes (padrao: Resultados/resultado_c.csv)")
+    analisador.add_argument("--testes", type=inteiro_positivo, help="numero de repeticoes a conferir com o C")
     try:
         argumentos = analisador.parse_args()
     except SystemExit as erro:
@@ -29,6 +30,8 @@ def main():
             referencia += ["--entradas", str(cenario)]
         elif not argumentos.manual:
             referencia.append("--repetir-c")
+        if argumentos.testes is not None:
+            referencia += ["--testes", str(argumentos.testes)]
         if argumentos.resultados_c:
             registro = argumentos.resultados_c
             if not registro.is_absolute():
