@@ -35,6 +35,10 @@ htmlcov/
 # Resultados CSV gerados pelas implementacoes C e Python
 /Resultados/
 
+# Versiona apenas o cenario de exemplo; os demais cenarios sao locais
+/Dados_Teste/*
+!/Dados_Teste/cenario_20_testes.csv
+
 # Copia temporaria do firmware usada pelo Renode
 /Renode/firmware.elf
 
