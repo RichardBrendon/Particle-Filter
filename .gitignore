@@ -37,7 +37,7 @@ htmlcov/
 
 # Versiona apenas o cenario de exemplo; os demais cenarios sao locais
 /Dados_Teste/*
-!/Dados_Teste/cenario_20_testes.csv
+!/Dados_Teste/cenario_exemplo.csv
 
 # Copia temporaria do firmware usada pelo Renode
 /Renode/firmware.elf
