@@ -2,7 +2,7 @@
 
 import csv
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 
@@ -79,6 +79,13 @@ def criar_medicao(teste, deslocamento, angulo, sensores):
     return Medicao(teste, escalados[0], escalados[1], escalados[2:])
 
 
+def repetir_medicao(medicao, quantidade):
+    """Repete as mesmas entradas, alterando apenas o identificador do teste."""
+    if quantidade <= 0:
+        raise ValueError("A quantidade de testes deve ser positiva.")
+    return [replace(medicao, teste=teste) for teste in range(1, quantidade + 1)]
+
+
 def ler_arquivo_medicoes(caminho):
     medicoes = []
     with Path(caminho).open("r", newline="", encoding="utf-8-sig") as arquivo:
@@ -99,6 +106,8 @@ def ler_arquivo_medicoes(caminho):
                 raise ValueError(f"Medicao invalida na linha {numero_linha}: {erro}") from erro
     if not medicoes:
         raise ValueError("O arquivo de medicoes nao possui testes.")
+    if len(medicoes) != 1:
+        raise ValueError("O cenario deve conter apenas uma linha de dados, alem do cabecalho.")
     return medicoes
 
 
