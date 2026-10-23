@@ -13,6 +13,7 @@ from medicoes import (
     criar_medicao,
     ler_arquivo_medicoes,
     ler_testes_registrados,
+    repetir_medicao,
 )
 
 NUM_PARTICULAS = 1000
@@ -217,6 +218,7 @@ def main():
         default=DIRETORIO_RESULTADOS / "resultado_c.csv",
         help="resultado C com as sementes dos testes a reproduzir",
     )
+    analisador.add_argument("--testes", type=int, help="numero de repeticoes da unica entrada")
     argumentos = analisador.parse_args()
     print("Filtro de Particulas em Python")
     print(f"Mapa: {MAPA_LARGURA:.1f} m x {MAPA_ALTURA:.1f} m")
@@ -226,7 +228,22 @@ def main():
         medicoes = [medicao for medicao, _ in testes_registrados]
     else:
         medicoes = ler_arquivo_medicoes(argumentos.entradas) if argumentos.entradas else None
-    numero_testes = len(medicoes) if medicoes else ler_numero_testes()
+    if argumentos.testes is not None:
+        numero_testes = argumentos.testes
+    elif argumentos.repetir_c or argumentos.entradas:
+        numero_testes = len(testes_registrados)
+    else:
+        numero_testes = ler_numero_testes()
+    if numero_testes <= 0:
+        raise ValueError("O numero de testes deve ser positivo.")
+    if argumentos.repetir_c:
+        if any(m.campos_entrada()[1:] != medicoes[0].campos_entrada()[1:] for m in medicoes):
+            raise ValueError("O resultado C deve usar a mesma entrada em todos os testes. Execute C novamente.")
+    elif medicoes:
+        medicoes = repetir_medicao(medicoes[0], numero_testes)
+    else:
+        print(f"Informe uma unica entrada para os {numero_testes} testes.")
+        medicoes = repetir_medicao(ler_medicao(1), numero_testes)
     if len(testes_registrados) != numero_testes:
         raise ValueError("Quantidade de testes diferente do resultado C. Execute C primeiro.")
     if medicoes and medicoes != [medicao for medicao, _ in testes_registrados]:
@@ -239,10 +256,7 @@ def main():
         escritor.writerow(CAMPOS_RESULTADO)
         for teste in range(1, numero_testes + 1):
             print(f"\nTeste {teste} de {numero_testes} | Etapa 1 de 1")
-            medicao = (
-                medicoes[teste - 1] if medicoes
-                else ler_medicao(teste)
-            )
+            medicao = medicoes[teste - 1]
             medicao_c, semente = testes_registrados[teste - 1]
             if medicao != medicao_c:
                 raise ValueError(f"Entradas do teste {teste} diferentes do resultado C.")
