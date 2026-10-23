@@ -8,6 +8,7 @@ from filterpy.monte_carlo import systematic_resample
 
 from medicoes import (
     CAMPOS_RESULTADO,
+    ESCALA_ANGULO,
     ESCALA_METROS,
     criar_medicao,
     ler_arquivo_medicoes,
@@ -137,7 +138,7 @@ def calcular_pesos(particulas, sensores):
             erro = np.float32(distancia - sensores[sensor])
             erro_total = np.float32(erro_total + np.float32(erro * erro))
         pesos[indice] = np.float32(
-            math.exp(float(np.float32(-erro_total / denominador)))
+            np.exp(np.float32(-erro_total / denominador))
         )
         soma = np.float32(soma + pesos[indice])
 
@@ -187,14 +188,14 @@ def prever_particulas(particulas, deslocamento, angulo_graus):
         particulas[indice, 0] = quantizar_coordenada(
             np.float32(
                 particulas[indice, 0]
-                + np.float32(distancia * np.float32(math.cos(float(direcao))))
+                + np.float32(distancia * np.cos(direcao))
             ),
             MAPA_LARGURA,
         )
         particulas[indice, 1] = quantizar_coordenada(
             np.float32(
                 particulas[indice, 1]
-                + np.float32(distancia * np.float32(math.sin(float(direcao))))
+                + np.float32(distancia * np.sin(direcao))
             ),
             MAPA_ALTURA,
         )
@@ -239,9 +240,11 @@ def main():
                 raise ValueError(f"Entradas do teste {teste} diferentes do resultado C.")
             particulas = inicializar_particulas(semente)
             np.random.seed(semente)
-            deslocamento = np.float32(medicao.deslocamento)
-            angulo_graus = medicao.angulo
-            sensores = np.asarray(medicao.sensores, dtype=np.float32)
+            # Reproduz o firmware: converte o inteiro da UART para float32
+            # antes de dividir pela escala, tambem em float32.
+            deslocamento = np.float32(medicao.deslocamento_um) / np.float32(ESCALA_METROS)
+            angulo_graus = np.float32(medicao.angulo_mgraus) / np.float32(ESCALA_ANGULO)
+            sensores = np.asarray(medicao.sensores_um, dtype=np.float32) / np.float32(ESCALA_METROS)
 
             prever_particulas(particulas, deslocamento, angulo_graus)
 
@@ -269,7 +272,9 @@ def main():
                 formatar_como_uart(y_estimado),
             ))
 
-            print(f"Posicao estimada: ({float(x_estimado):.6f}, {float(y_estimado):.6f}) m")
+            print("Posicao estimada: "
+                  f"({formatar_como_uart(x_estimado)}, "
+                  f"{formatar_como_uart(y_estimado)}) m")
 
 if __name__ == "__main__":
     try:
