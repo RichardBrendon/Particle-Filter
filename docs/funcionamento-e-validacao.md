@@ -37,11 +37,11 @@ flowchart TD
     D --> F[Comparar os dois resultados]
     E --> F
     F --> G{Testes, entradas, sementes e valores são válidos?}
-    G -- Não --> H[FALHOU: indicar teste e motivo]
+    G -- Não --> H[FALHOU no teste]
     G -- Sim --> I{Distância C–Python respeita o limite do teste?}
     I -- Não --> H
     I -- Sim --> J[PASSOU]
-    H --> K[Mostrar diferença máxima e RMSE]
+    H --> K[Mostrar diferença máxima]
     J --> K
 ```
 
@@ -49,17 +49,19 @@ Em cada teste, o comparador calcula a distância euclidiana entre as estimativas
 
 `d = sqrt((x_C - x_Python)^2 + (y_C - y_Python)^2)`
 
-O critério numérico padrão é `d ≤ 0,00001 m` (10 micrômetros) **em todos os testes**, pois todos executam apenas a primeira etapa. O comparador também confere quantidade e ordem dos testes, entradas e sementes iguais, posições dentro do mapa e posições medidas compatíveis com os sensores, admitindo 1 micrômetro de diferença por arredondamento da UART. Cada teste recebe seu próprio `PASSOU` ou `FALHOU`, com os motivos de falha; não há veredito final para o conjunto. Testes ausentes em um dos resultados recebem `FALHOU`. O código de saída permanece diferente de zero se houver falhas, para uso pelo script automatizado.
+O critério numérico padrão é `d = 0 m` **em todos os testes**, pois todos executam apenas a primeira etapa. As estimativas gravadas nos CSVs devem ser exatamente iguais; diferenças não nulas fazem o teste falhar. Isso exige igualdade na resolução dos arquivos, não dos valores internos antes da conversão. O comparador também confere quantidade e ordem dos testes, entradas e sementes iguais, posições dentro do mapa e posições medidas compatíveis com os sensores, admitindo 1 micrômetro de diferença por arredondamento da UART. Cada teste recebe seu próprio `PASSOU` ou `FALHOU`, sem exibir os motivos; não há veredito final para o conjunto. Testes ausentes em um dos resultados recebem `FALHOU`. O comparador e o executor retornam código `0` quando concluem o procedimento, inclusive com testes reprovados. O código `1` sinaliza que um erro ou cancelamento impediu a conclusão; os resultados individuais continuam determinando a concordância entre C e Python.
 
-A **diferença máxima** e o **RMSE** resumem o comportamento do cenário, mas o RMSE não decide a aprovação: um teste muito divergente poderia ser escondido pela média dos demais. O desvio padrão das diferenças não substitui esse critério, pois pode ser pequeno mesmo quando todas as diferenças são grandes. O limite compara as implementações; não afirma precisão absoluta de localização nem garante aprovação em qualquer cenário.
+A **diferença máxima** resume o comportamento do cenário e é apenas informativa. Cada teste é avaliado individualmente pela diferença em relação à tolerância, além das verificações de consistência descritas acima. O limite compara as implementações; não afirma precisão absoluta de localização nem garante aprovação em qualquer cenário.
 
 ## Como reproduzir
+
+Ao final da comparação, são exibidos os totais de testes que passaram e falharam. Cada teste conta uma única vez; resultados ausentes também entram no total de falhas.
 
 Execute `py .\executar_teste.py` (ou use `python` ou `python3`) para abrir o menu: entrada manual, CSV existente ou geração automática. Escolha também Renode ou placa. As entradas manuais são solicitadas uma única vez. Entradas manuais e geradas são salvas em um CSV exclusivo de `Dados_Teste/`, utilizado pelos dois programas. O gerador usa sensores ideais coerentes com o mapa de 10 × 8 m, deslocamentos de 0 a 2 m e origens e destinos dentro do mapa. As sementes de cada teste ficam no resultado C para reprodução pela referência.
 
 Para gerar entradas sem o menu, use `py .\executar_teste.py --gerar-testes 20`. Para entrada manual direta, use `--manual`. Para um CSV já existente, mantenha o fluxo abaixo:
 
-Os cenários gerados automaticamente usam `cenario_N_testes.csv`. Quando o nome já existe, são numerados como `cenario_N-2_testes.csv`, `cenario_N-3_testes.csv` e assim por diante. O executor preserva os arquivos existentes; use `--cenario N-2`, por exemplo, para selecionar a segunda variante.
+Os cenários manuais e os gerados automaticamente usam `cenario_N_testes.csv`, compartilhando a mesma sequência de nomes. Quando o nome já existe, são numerados como `cenario_N-2_testes.csv`, `cenario_N-3_testes.csv` e assim por diante. O executor preserva os arquivos existentes; use `--cenario N-2`, por exemplo, para selecionar a segunda variante.
 
 1. Escolha um cenário, por exemplo `Dados_Teste/cenario_20_testes.csv`, com 20 testes independentes de uma etapa.
 2. Com o firmware ativo na placa ou no Renode, execute `py .\executar_teste.py --cenario 20 --modo renode` na raiz do projeto (ou use `python` ou `python3`; para a placa, use `--modo placa --porta COM3`, conforme a porta do PC).
