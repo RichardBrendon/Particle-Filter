@@ -62,16 +62,30 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/* Comunicação entre o PC e o filtro embarcado.
+ * Cada comando é uma linha de texto terminada em '\n'; os campos usam vírgulas.
+ * O PC controla os testes: envia RESET,semente e depois STEP para cada teste
+ * independente. Este módulo converte as unidades, chama o filtro e responde;
+ * a geração dos cenários e a gravação dos CSVs ficam no PC.
+ * Mantenha as marcações USER CODE: elas delimitam áreas preservadas pelo CubeMX. */
+
+/* Capacidade inclui o terminador '\0'. Valores do protocolo são inteiros:
+ * distâncias em micrômetros (1 m = 1000000) e ângulos em milésimos de grau. */
 #define UART_LINHA_TAMANHO 160
 #define ESCALA_METROS 1000000.0f
 #define ESCALA_ANGULO 1000.0f
 
+/* Envio bloqueante pela USART2. O texto deve terminar em '\0'; esse terminador
+ * não é transmitido. HAL_MAX_DELAY aguarda a conclusão sem timeout finito. */
 static void uart_enviar(const char *texto)
 {
   HAL_UART_Transmit(&huart2, (const uint8_t *)texto,
                     (uint16_t)strlen(texto), HAL_MAX_DELAY);
 }
 
+/* Recebe uma linha sem guardar '\r' ou '\n', aceitando finais LF e CRLF.
+ * Retornos: 1 = linha completa; 0 = falha na UART; -1 = linha muito longa.
+ * O chamador fornece um buffer com capacidade para dados e terminador. */
 static int uart_receber_linha(char *linha, size_t capacidade)
 {
   size_t indice = 0;
@@ -94,6 +108,8 @@ static int uart_receber_linha(char *linha, size_t capacidade)
     }
     if (indice + 1 >= capacidade)
     {
+      /* Descarta o restante até '\n' para que a próxima leitura comece em um
+       * novo comando, em vez de interpretar o trecho excedente como comando. */
       linha[0] = '\0';
       do
       {
@@ -108,6 +124,9 @@ static int uart_receber_linha(char *linha, size_t capacidade)
   }
 }
 
+/* Converte um campo decimal com sinal, exigindo consumo de todo o texto.
+ * Não verifica explicitamente overflow de strtol nem a faixa de int32_t;
+ * o cliente deve enviar valores representáveis no protocolo de 32 bits. */
 static int ler_inteiro(const char *texto, int32_t *valor)
 {
   char *fim;
@@ -121,6 +140,8 @@ static int ler_inteiro(const char *texto, int32_t *valor)
   return 1;
 }
 
+/* A semente aceita apenas dígitos, de 0 a UINT32_MAX, sem sinal.
+ * A verificação antes de multiplicar evita overflow durante a conversão. */
 static int ler_semente(const char *texto, uint32_t *valor)
 {
   uint32_t convertido = 0;
@@ -147,12 +168,18 @@ static int ler_semente(const char *texto, uint32_t *valor)
   return 1;
 }
 
+/* Converte metros para a unidade inteira da resposta, arredondando ao inteiro
+ * mais próximo; empates são afastados de zero. Evita formatar floats na UART. */
 static int32_t metros_para_inteiro(float valor)
 {
   float escalado = valor * ESCALA_METROS;
   return (int32_t)(escalado + (escalado >= 0.0f ? 0.5f : -0.5f));
 }
 
+/* Formato: STEP,etapa,deslocamento,angulo,esquerda,direita,inferior,superior.
+ * Recebe sete inteiros nas escalas definidas acima. strtok modifica a linha.
+ * Retorna 0 se não for STEP; retorna 1 se reconhecido, inclusive com erro.
+ * O número da etapa identifica a resposta; não controla quantas vezes rodar. */
 static int processar_step(char *linha)
 {
   int32_t valores[7];
@@ -168,6 +195,7 @@ static int processar_step(char *linha)
     return 0;
   }
 
+  /* Exige sete tokens numéricos e rejeita tokens adicionais. */
   for (int i = 0; i < 7; i++)
   {
     token = strtok(NULL, ",");
@@ -183,6 +211,7 @@ static int processar_step(char *linha)
     return 1;
   }
 
+  /* O filtro trabalha com floats em metros e graus, não com inteiros UART. */
   medicao.deslocamento = (float)valores[1] / ESCALA_METROS;
   medicao.angulo = (float)valores[2] / ESCALA_ANGULO;
   for (int i = 0; i < NUM_SENSORES; i++)
@@ -190,6 +219,8 @@ static int processar_step(char *linha)
     medicao.sensores[i] = (float)valores[i + 3] / ESCALA_METROS;
   }
 
+  /* Verifica etapa positiva e limites individuais dos quatro sensores.
+   * Não exige que sensores opostos somem exatamente a dimensão do mapa. */
   if (valores[0] < 1 ||
       valores[3] < 0 || valores[3] > (int32_t)(MAPA_LARGURA * ESCALA_METROS) ||
       valores[4] < 0 || valores[4] > (int32_t)(MAPA_LARGURA * ESCALA_METROS) ||
@@ -200,12 +231,18 @@ static int processar_step(char *linha)
     return 1;
   }
 
+  /* Executa predição, atualização dos pesos, estimativa e reamostragem. */
   estimativa = filtro_processar(&medicao);
+  /* Posição medida: média das duas indicações de cada eixo. É informativa
+   * na resposta; o filtro recebe diretamente as quatro distâncias acima. */
   x_medido = (medicao.sensores[0] +
               (MAPA_LARGURA - medicao.sensores[1])) / 2.0f;
   y_medido = (medicao.sensores[2] +
               (MAPA_ALTURA - medicao.sensores[3])) / 2.0f;
 
+  /* RESULT,etapa,x_medido,y_medido,x_estimado,y_estimado.
+   * Todas as coordenadas retornam como inteiros em micrômetros; o PC as
+   * converte em metros para apresentação e armazenamento nos CSVs. */
   (void)snprintf(resposta, sizeof(resposta),
                  "RESULT,%ld,%ld,%ld,%ld,%ld\n",
                  (long)valores[0],
@@ -217,6 +254,8 @@ static int processar_step(char *linha)
   return 1;
 }
 
+/* Lê e atende um comando por chamada. As respostas de erro encerram apenas
+ * esse atendimento; o laço principal continua disponível para novos comandos. */
 static void processar_comando_uart(void)
 {
   char linha[UART_LINHA_TAMANHO];
@@ -234,6 +273,8 @@ static void processar_comando_uart(void)
   }
   if (strncmp(linha, "RESET,", 6) == 0)
   {
+    /* Reinicia partículas e gerador com a semente escolhida pelo PC.
+     * O PC registra essa semente para reprodução pela referência Python. */
     uint32_t semente;
     if (!ler_semente(linha + 6, &semente))
     {
@@ -246,17 +287,21 @@ static void processar_comando_uart(void)
   }
   if (strcmp(linha, "RESET") == 0)
   {
+    /* Forma sem argumento: reinicialização determinística com semente zero. */
     filtro_inicializar(0u);
     uart_enviar("READY\n");
     return;
   }
   if (strcmp(linha, "PING") == 0)
   {
+    /* Testa a comunicação sem alterar o estado do filtro. */
     uart_enviar("PONG\n");
     return;
   }
   if (strcmp(linha, "INFO") == 0)
   {
+    /* Informa largura e altura em micrômetros, número de partículas e sensores.
+     * Permite ao cliente consultar a configuração compilada no firmware. */
     char resposta[64];
     (void)snprintf(resposta, sizeof(resposta),
                    "INFO,%ld,%ld,%u,%u\n",
@@ -305,6 +350,8 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  /* Estado inicial válido mesmo antes do primeiro RESET do PC.
+   * READY sinaliza que a inicialização terminou e comandos podem ser enviados. */
   filtro_inicializar(0u);
   uart_enviar("READY\n");
 
@@ -314,6 +361,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    /* Atendimento síncrono: espera uma linha, processa e envia a resposta.
+     * Não há fila de testes no firmware; o cliente coordena cada solicitação. */
     processar_comando_uart();
     /* USER CODE END WHILE */
 
@@ -374,6 +423,9 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE BEGIN USART2_Init 1 */
 
+  /* USART2: 115200 baud, 8 bits, sem paridade, 1 bit de parada (8N1),
+   * transmissão e recepção habilitadas, sem controle de fluxo por hardware.
+   * O cliente no PC precisa usar os mesmos parâmetros. */
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
   huart2.Init.BaudRate = 115200;
@@ -438,6 +490,8 @@ static void MX_GPIO_Init(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
+  /* Falha de inicialização: interrompe a execução normal e permanece parado.
+   * Diferentemente de ERROR no protocolo, este caminho não retorna ao laço UART. */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1)
