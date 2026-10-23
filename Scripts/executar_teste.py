@@ -60,52 +60,46 @@ def ler_valor(mensagem, limite=None):
 
 
 def medicoes_manuais(quantidade):
-    medicoes = []
     nomes = ("esquerda", "direita", "inferior", "superior")
-    for teste in range(1, quantidade + 1):
-        while True:
-            print(f"\nEntradas do teste {teste} de {quantidade} | Etapa 1 de 1")
-            deslocamento = ler_valor("Deslocamento (m): ")
-            angulo = ler_valor("Angulo do movimento (graus): ")
-            sensores = [ler_valor(f"Distancia ate a parede {nome} (m): ", limite)
-                        for nome, limite in zip(nomes, LIMITES_SENSORES)]
-            try:
-                medicoes.append(criar_medicao(teste, deslocamento, angulo, sensores))
-                break
-            except ValueError as erro:
-                print(f"Entrada invalida: {erro}. Informe novamente este teste.")
-    return medicoes
+    while True:
+        print(f"\nInforme uma unica entrada para os {quantidade} testes | Etapa 1 de 1")
+        deslocamento = ler_valor("Deslocamento (m): ")
+        angulo = ler_valor("Angulo do movimento (graus): ")
+        sensores = [ler_valor(f"Distancia ate a parede {nome} (m): ", limite)
+                    for nome, limite in zip(nomes, LIMITES_SENSORES)]
+        try:
+            medicao = criar_medicao(1, deslocamento, angulo, sensores)
+            return medicao
+        except ValueError as erro:
+            print(f"Entrada invalida: {erro}. Informe novamente a entrada.")
 
 
 def gerar_medicoes(quantidade):
-    """Gera sensores ideais e movimentos de 0 a 2 m compativeis com o mapa."""
+    """Gera uma entrada compativel com o mapa e a repete em todos os testes."""
     aleatorio = secrets.SystemRandom()
     largura, altura = LIMITES_SENSORES[0], LIMITES_SENSORES[2]
-    for teste in range(1, quantidade + 1):
-        deslocamento_um = aleatorio.randint(0, 2 * ESCALA_METROS)
-        angulo_mgraus = aleatorio.randrange(360 * ESCALA_ANGULO)
-        deslocamento = deslocamento_um / ESCALA_METROS
-        angulo = angulo_mgraus / ESCALA_ANGULO
-        dx = deslocamento * math.cos(math.radians(angulo))
-        dy = deslocamento * math.sin(math.radians(angulo))
-        # Escolhe a posicao final de modo que a origem implicita tambem caiba
-        # no mapa, sem relacionar o teste com qualquer linha anterior.
-        x_um = aleatorio.randint(math.ceil(max(0, dx) * ESCALA_METROS),
-                                 math.floor(min(largura, largura + dx) * ESCALA_METROS))
-        y_um = aleatorio.randint(math.ceil(max(0, dy) * ESCALA_METROS),
-                                 math.floor(min(altura, altura + dy) * ESCALA_METROS))
-        x, y = x_um / ESCALA_METROS, y_um / ESCALA_METROS
-        yield criar_medicao(teste, deslocamento, angulo,
-                            (x, largura - x, y, altura - y))
+    deslocamento_um = aleatorio.randint(0, 2 * ESCALA_METROS)
+    angulo_mgraus = aleatorio.randrange(360 * ESCALA_ANGULO)
+    deslocamento = deslocamento_um / ESCALA_METROS
+    angulo = angulo_mgraus / ESCALA_ANGULO
+    dx = deslocamento * math.cos(math.radians(angulo))
+    dy = deslocamento * math.sin(math.radians(angulo))
+    # A origem implicita e a posicao final devem caber no mapa.
+    x_um = aleatorio.randint(math.ceil(max(0, dx) * ESCALA_METROS),
+                             math.floor(min(largura, largura + dx) * ESCALA_METROS))
+    y_um = aleatorio.randint(math.ceil(max(0, dy) * ESCALA_METROS),
+                             math.floor(min(altura, altura + dy) * ESCALA_METROS))
+    x, y = x_um / ESCALA_METROS, y_um / ESCALA_METROS
+    medicao = criar_medicao(1, deslocamento, angulo, (x, largura - x, y, altura - y))
+    return medicao
 
 
-def salvar_cenario(medicoes, quantidade):
+def salvar_cenario(medicao):
     diretorio = RAIZ_PROJETO / "Dados_Teste"
     diretorio.mkdir(exist_ok=True)
     numero_cenario = 1
     while True:
-        identificador = str(quantidade) if numero_cenario == 1 else f"{quantidade}-{numero_cenario}"
-        caminho = diretorio / f"cenario_{identificador}_testes.csv"
+        caminho = diretorio / f"cenario_{numero_cenario}.csv"
         try:
             # Criacao exclusiva impede sobrescrita, inclusive em execucoes simultaneas.
             arquivo_cenario = caminho.open("x", newline="", encoding="utf-8")
@@ -116,16 +110,13 @@ def salvar_cenario(medicoes, quantidade):
         caminho = Path(arquivo.name)
         escritor = csv.writer(arquivo)
         escritor.writerow(CAMPOS_MEDICAO)
-        for medicao in medicoes:
-            escritor.writerow(medicao.campos_entrada())
+        escritor.writerow(medicao.campos_entrada())
     return caminho
 
 
 def resolver_cenario(cenario):
-    if re.fullmatch(r"\d+(-\d+)?", cenario):
-        caminho = RAIZ_PROJETO / "Dados_Teste" / f"cenario_{cenario}_testes.csv"
-        if cenario == "1" and not caminho.is_file():
-            caminho = RAIZ_PROJETO / "Dados_Teste" / "cenario_1_teste.csv"
+    if re.fullmatch(r"\d+", cenario):
+        caminho = RAIZ_PROJETO / "Dados_Teste" / f"cenario_{cenario}.csv"
     else:
         caminho = Path(cenario)
         if not caminho.suffix:
@@ -154,10 +145,12 @@ def main(apenas_c=False):
     descricao = "Executa apenas o filtro C pela UART ou pelo Renode." if apenas_c else __doc__
     analisador = argparse.ArgumentParser(description=descricao)
     entrada = analisador.add_mutually_exclusive_group()
-    entrada.add_argument("--cenario", help="numero, variante, nome em Dados_Teste (com ou sem .csv) ou caminho")
+    entrada.add_argument("--cenario", help="identificador do cenario, nome em Dados_Teste (com ou sem .csv) ou caminho")
     entrada.add_argument("--manual", action="store_true", help="digitar as entradas uma unica vez")
     entrada.add_argument("--gerar-testes", type=inteiro_positivo, metavar="N",
                          help="gerar e salvar N testes independentes automaticamente")
+    analisador.add_argument("--testes", type=inteiro_positivo, metavar="N",
+                            help="quantidade de repeticoes da unica entrada do cenario")
     analisador.add_argument("--modo", type=str.lower, choices=("renode", "placa"))
     analisador.add_argument("--porta", help="porta da placa, por exemplo COM3")
     analisador.add_argument("--endereco-renode", default="localhost:12345", help="HOST:PORTA do Renode")
@@ -174,8 +167,10 @@ def main(apenas_c=False):
                 argumentos.manual = True
             elif escolha == 2:
                 argumentos.cenario = input("Cenario (numero, nome com ou sem .csv, ou caminho): ").strip()
+                if argumentos.testes is None:
+                    argumentos.testes = ler_quantidade()
             else:
-                argumentos.gerar_testes = ler_quantidade()
+                argumentos.gerar_testes = argumentos.testes or ler_quantidade()
         if argumentos.modo is None:
             if menu:
                 destino = escolher_opcao("Onde executar o filtro C:", ("Renode", "Placa"))
@@ -187,22 +182,26 @@ def main(apenas_c=False):
         if menu and argumentos.modo == "placa" and not argumentos.porta:
             argumentos.porta = input("Porta (ex.: COM3; Enter para detectar): ").strip()
         if argumentos.manual:
-            quantidade = ler_quantidade()
-            cenario = salvar_cenario(medicoes_manuais(quantidade), quantidade)
+            quantidade = argumentos.testes or ler_quantidade()
+            cenario = salvar_cenario(medicoes_manuais(quantidade))
         elif argumentos.gerar_testes:
             quantidade = argumentos.gerar_testes
-            cenario = salvar_cenario(gerar_medicoes(quantidade), quantidade)
+            if argumentos.testes is not None and argumentos.testes != quantidade:
+                raise ValueError("--testes deve coincidir com --gerar-testes.")
+            cenario = salvar_cenario(gerar_medicoes(quantidade))
         else:
             cenario = resolver_cenario(argumentos.cenario)
+            quantidade = argumentos.testes or ler_quantidade()
         print(f"Cenario: {cenario.name}\nModo: {argumentos.modo}", flush=True)
-        cliente = ["--entradas", str(cenario)]
+        entradas = ["--entradas", str(cenario), "--testes", str(quantidade)]
+        cliente = entradas.copy()
         if argumentos.modo == "renode":
             cliente += ["--tcp", argumentos.endereco_renode]
         elif argumentos.porta:
             cliente += ["--porta", argumentos.porta]
         executar_python("Executando o filtro C pela UART", "comunicacao_uart.py", cliente)
         if not apenas_c:
-            executar_python("Executando a referencia Python", "particle_filter.py", ["--entradas", str(cenario)])
+            executar_python("Executando a referencia Python", "particle_filter.py", entradas)
             executar_python("Comparando os resultados", "comparar_resultados.py")
     except subprocess.CalledProcessError:
         return 1
