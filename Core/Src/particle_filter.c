@@ -164,6 +164,11 @@ static unsigned int proximo_aleatorio(FiltroParticulas *filtro) {
      * Mesma semente e mesma ordem de chamadas reproduzem a mesma sequência. */
     filtro->estado_aleatorio =
         1664525u * filtro->estado_aleatorio + 1013904223u;
+    /* Constantes matemáticas utilizadas em um algoritmo chamado Gerador Congruencial Linear (LCG – Linear Congruential Generator).
+     * Esse algoritmo gera uma sequência de números pseudoaleatórios por meio de uma fórmula matemática.
+     * Essas duas constantes (1664525 e 1013904223) são conhecidas por serem utilizadas no LCG associado a Numerical Recipes.
+     * Verificável em https://en.wikipedia.org/wiki/Linear_congruential_generator
+     */
     return filtro->estado_aleatorio;
 }
 
@@ -174,6 +179,11 @@ static unsigned int proximo_aleatorio(FiltroParticulas *filtro) {
  */
 static float aleatorio_entre_zero_e_um(FiltroParticulas *filtro) {
     return (float)proximo_aleatorio(filtro) / 4294967295.0f;
+    /* 
+     * Para isso, é utilizada a operação R = X/(2^32 - 1), onde R é o valor em [0,1] e
+     * X o proximo_aleatorio.
+     * A constante 4294967295 vem de 2^32 - 1, pois 4294967296 - 1 = 4294967295.
+     */
 }
 
 /* 
